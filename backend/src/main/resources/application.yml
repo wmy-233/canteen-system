@@ -11,8 +11,8 @@ spring:
     username: root
     password: "123456"
   redis:
-    # TODO: 本地 Redis 连接信息（Windows 需先启动 Redis 服务）
-    host: localhost
+    # 用 127.0.0.1 而不是 localhost（localhost 优先解析 IPv6 会连不上只绑定 IPv4 的 Redis）
+    host: 127.0.0.1
     port: 6379
     database: 0
     timeout: 5000
