@@ -18,7 +18,7 @@
     <description>智慧校园食堂点餐系统 - 后端</description>
 
     <properties>
-        <java.version>8</java.version>
+        <java.version>11</java.version>
         <mysql.version>8.0.33</mysql.version>
         <knife4j.version>4.3.0</knife4j.version>
         <redisson.version>3.23.5</redisson.version>
@@ -33,7 +33,7 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
-        <!-- Spring Security（RBAC 权限基础�?-->
+        <!-- Spring Security（RBAC 权限基础�?-->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
@@ -96,7 +96,7 @@
             <version>${jjwt.version}</version>
             <scope>runtime</scope>
         </dependency>
-        <!-- Hutool 工具�?-->
+        <!-- Hutool 工具�?-->
         <dependency>
             <groupId>cn.hutool</groupId>
             <artifactId>hutool-all</artifactId>
@@ -121,7 +121,7 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
-            <!-- 显式配置 Lombok 注解处理器：JDK 21+ 必需，否则编译报"找不到符�?log/setter" -->
+            <!-- 显式配置 Lombok 注解处理器：JDK 21+ 必需，否则编译报"找不到符�?log/setter" -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
