@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 角色 RBAC Mapper -->
+<mapper namespace="com.canteen.mapper.RoleMapper">
+
+    <select id="selectRoleCodesByUserId" resultType="string">
+        SELECT r.role_code
+        FROM `role` r
+        JOIN user_role ur ON ur.role_id = r.id
+        WHERE ur.user_id = #{userId}
+    </select>
+
+    <select id="selectIdByCode" resultType="long">
+        SELECT id FROM `role` WHERE role_code = #{roleCode} LIMIT 1
+    </select>
+
+    <insert id="insertUserRole">
+        INSERT IGNORE INTO user_role (user_id, role_id) VALUES (#{userId}, #{roleId})
+    </insert>
+
+</mapper>
