@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- DO NOT DELETE: 团队约定 — 本文件用于快速回滚规划，业务 mapper.xml 建立在 ../mapper/ 目录 -->
-<mapper namespace="">
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 占位文件，防止空目录；正式 mapper.xml 由组员 A 后续建立 -->
+<mapper namespace="com.canteen.mapper.PlaceholderMapper">
 </mapper>
