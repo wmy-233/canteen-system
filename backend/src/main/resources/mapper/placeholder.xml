@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- DO NOT DELETE: 团队约定 — 本文件用于快速回滚规划，业务 mapper.xml 建立在 ../mapper/ 目录 -->
+<mapper namespace="">
+</mapper>
