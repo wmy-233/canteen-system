@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 用户表 Mapper XML：注意表名 user 是 MySQL 关键字，必须用反引号 -->
+<mapper namespace="com.canteen.mapper.UserMapper">
+
+    <!-- 字段映射：数据库下划线 -> Java 驼峰，已在 application.yml 开启 map-underscore-to-camel-case，此处无需额外配置 -->
+
+    <select id="selectByUsername" resultType="com.canteen.entity.User">
+        SELECT id, username, password, nickname, phone, avatar, balance, status, create_time, update_time
+        FROM `user`
+        WHERE username = #{username}
+        LIMIT 1
+    </select>
+
+    <select id="selectById" resultType="com.canteen.entity.User">
+        SELECT id, username, password, nickname, phone, avatar, balance, status, create_time, update_time
+        FROM `user`
+        WHERE id = #{id}
+        LIMIT 1
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO `user` (username, password, nickname, phone, avatar, balance, status)
+        VALUES (#{username}, #{password}, #{nickname}, #{phone}, #{avatar}, #{balance}, #{status})
+    </insert>
+
+    <select id="countAll" resultType="long">
+        SELECT COUNT(*) FROM `user`
+    </select>
+
+</mapper>
