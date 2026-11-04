@@ -2,6 +2,7 @@ package com.canteen.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
+import lombok.ToString;
 
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.Size;
@@ -19,5 +20,6 @@ public class LoginRequest {
 
     @Schema(description = "密码", example = "123456")
     @NotBlank(message = "密码不能为空")
+    @ToString.Exclude  // 防止密码随 toString 进入日志（LogAspect 会记录参数）
     private String password;
 }

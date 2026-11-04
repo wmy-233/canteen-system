@@ -6,6 +6,8 @@
 
 CREATE DATABASE IF NOT EXISTS canteen DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 USE canteen;
+-- 防止执行工具字符集不是 utf8mb4 时中文被双重编码污染（如 docker-entrypoint 默认 latin1 客户端）
+SET NAMES utf8mb4;
 
 -- 用户表
 CREATE TABLE IF NOT EXISTS `user` (
@@ -176,5 +178,4 @@ CREATE TABLE IF NOT EXISTS `wallet_record` (
 -- 初始演示数据（答辩演示用三角色账号，密码统一 123456 的 BCrypt，需注意替换）
 -- ============================================================
 INSERT INTO `role` (`role_code`,`role_name`) VALUES ('ADMIN','管理员'),('MERCHANT','档口商家'),('STUDENT','学生');
--- TODO: user 三角色账号与密码 BCrypt 值由组员 C 完成（注册写入暂由接口生成）；
--- canteen / stall / dish_category / menu / role_menu / coupon 初始数据待第 1 周 D3 补充
+-- 演示账号/食堂档口/菜品/权限/优惠券等初始数据见 sql/init_data.sql（组员 C 维护，可反复重置）

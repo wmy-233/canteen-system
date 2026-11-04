@@ -1,7 +1,10 @@
 package com.canteen.common;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 /**
@@ -10,6 +13,18 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    /**
+     * 权限不足（@PreAuthorize 方法级鉴权抛出）
+     * 注意：方法级鉴权异常发生在 DispatcherServlet 内，不会被 Security 过滤链的
+     * accessDeniedHandler 捕获，必须在此转成 HTTP 403
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public Result<Void> handleAccessDenied(AccessDeniedException e) {
+        log.warn("权限不足: {}", e.getMessage());
+        return Result.fail(403, "无权限访问该资源");
+    }
 
     /** 业务异常 */
     @ExceptionHandler(RuntimeException.class)

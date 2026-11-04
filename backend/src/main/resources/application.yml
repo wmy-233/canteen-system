@@ -4,6 +4,10 @@ server:
 spring:
   application:
     name: canteen-system
+  # Redisson 默认自动装配在启动时强制连 Redis，连不上会直接导致后端启动失败
+  # 排除后由 RedisSupport 自行尝试连接：Redis 可用则启用亮点功能，不可用则降级运行（主流程不受影响）
+  autoconfigure:
+    exclude: org.redisson.spring.starter.RedissonAutoConfiguration
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     # TODO: 本地 MySQL 密码改成自己的；数据库由 sql/schema.sql 创建
