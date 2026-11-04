@@ -1,14 +1,68 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { useUserStore } from '../stores/user'
+
+// 各角色的默认首页，登录后按角色跳转
+export const ROLE_HOME = {
+  STUDENT: '/student',
+  MERCHANT: '/merchant',
+  ADMIN: '/admin'
+}
+
+const placeholder = (title) => ({ component: () => import('../views/Placeholder.vue'), props: { title } })
 
 const routes = [
+  { path: '/login', component: () => import('../views/Login.vue') },
+
+  // ---- 学生端 ----
   {
-    path: '/login',
-    component: () => import('../views/Login.vue')
+    path: '/student',
+    component: () => import('../layouts/FrameLayout.vue'),
+    meta: { roles: ['STUDENT'] },
+    children: [
+      { path: '', component: () => import('../views/student/Dashboard.vue') },
+      { path: 'menu', ...placeholder('菜品浏览') },
+      { path: 'orders', ...placeholder('我的订单') },
+      { path: 'wallet', ...placeholder('我的钱包') },
+      { path: 'coupons', ...placeholder('优惠券') }
+    ]
   },
+
+  // ---- 商家端 ----
+  {
+    path: '/merchant',
+    component: () => import('../layouts/FrameLayout.vue'),
+    meta: { roles: ['MERCHANT'] },
+    children: [
+      { path: '', component: () => import('../views/merchant/Dashboard.vue') },
+      { path: 'dishes', ...placeholder('菜品管理') },
+      { path: 'orders', ...placeholder('出餐看板') },
+      { path: 'stats', ...placeholder('销量统计') }
+    ]
+  },
+
+  // ---- 管理端 ----
+  {
+    path: '/admin',
+    component: () => import('../layouts/FrameLayout.vue'),
+    meta: { roles: ['ADMIN'] },
+    children: [
+      { path: '', component: () => import('../views/admin/Dashboard.vue') },
+      { path: 'users', ...placeholder('用户管理') },
+      { path: 'merchants', ...placeholder('档口审核') },
+      { path: 'stats', ...placeholder('全局统计') }
+    ]
+  },
+
+  // 根路径：按角色跳对应布局，未登录去登录页
   {
     path: '/',
-    component: () => import('../views/user/Home.vue')
-  }
+    redirect: () => {
+      const userStore = useUserStore()
+      return userStore.token ? (ROLE_HOME[userStore.role] || '/login') : '/login'
+    }
+  },
+  // 兜底 404
+  { path: '/:pathMatch(.*)*', redirect: '/' }
 ]
 
 const router = createRouter({
@@ -16,5 +70,26 @@ const router = createRouter({
   routes
 })
 
-// 路由守卫：TODO 第1周 D5 由组员 B 补全（未登录跳转到 /login，按角色访问限制）
+// 路由守卫：
+// 1. 未登录访问受保护页面 → /login
+// 2. 已登录访问 /login → 按角色跳回自己的布局
+// 3. 角色越权访问（如学生访问 /admin）→ 踢回自己的首页
+router.beforeEach((to) => {
+  const userStore = useUserStore()
+
+  if (to.path === '/login') {
+    return userStore.token ? (ROLE_HOME[userStore.role] || '/login') : true
+  }
+
+  if (!userStore.token) {
+    return { path: '/login', query: { redirect: to.fullPath } }
+  }
+
+  const roles = to.meta.roles
+  if (roles && !roles.includes(userStore.role)) {
+    return ROLE_HOME[userStore.role] || '/login'
+  }
+  return true
+})
+
 export default router
