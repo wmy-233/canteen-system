@@ -1,5 +1,6 @@
 package com.canteen.controller;
 
+import com.canteen.aspect.OpLog;
 import com.canteen.common.Result;
 import com.canteen.dto.LoginRequest;
 import com.canteen.dto.RegisterRequest;
@@ -26,12 +27,14 @@ public class UserController {
     private final UserService userService;
 
     @Operation(summary = "注册（默认 STUDENT 角色，成功即自动登录）")
+    @OpLog(module = "用户", action = "注册")
     @PostMapping("/register")
     public Result<LoginResponse> register(@Validated @RequestBody RegisterRequest request) {
         return Result.success(userService.register(request));
     }
 
     @Operation(summary = "登录（返回 JWT token 与角色）")
+    @OpLog(module = "用户", action = "登录")
     @PostMapping("/login")
     public Result<LoginResponse> login(@Validated @RequestBody LoginRequest request) {
         return Result.success(userService.login(request));
