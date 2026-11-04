@@ -41,6 +41,7 @@ docker exec canteen-redis redis-cli ping   # 返回 PONG 即成功
 
 ### 3. 初始化数据库
 用 Navicat 或命令行执行 `sql/schema.sql`（已含建库建表）。
+> 连接与查看方法见 `docs/环境连接_MySQL.md`（数据库已 Docker 化并自动初始化，通常无需手动执行）。
 
 ### 4. 启动后端
 ```bash
