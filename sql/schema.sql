@@ -6,6 +6,8 @@
 
 CREATE DATABASE IF NOT EXISTS canteen DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 USE canteen;
+-- 防止执行工具字符集不是 utf8mb4 时中文被双重编码污染（如 docker-entrypoint 默认 latin1 客户端）
+SET NAMES utf8mb4;
 
 -- 用户表
 CREATE TABLE IF NOT EXISTS `user` (

@@ -6,6 +6,7 @@
 --   spring-security-crypto 5.7.11 BCryptPasswordEncoder 验证 matches 通过）
 -- ============================================================
 USE canteen;
+SET NAMES utf8mb4;
 
 -- ------------------------------------------------------------
 -- 0. 清空旧数据（可反复重置；role 表由 schema.sql 管理，此处不删）
