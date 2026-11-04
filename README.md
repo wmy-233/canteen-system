@@ -29,12 +29,20 @@ canteen-system/
 - Maven 3.6+
 - Node.js 16+
 - MySQL 8（本地 root 密码默认 123456，在 application.yml 修改）
-- Redis 6+（Windows 本地可使用微软维护版或 WSL/Docker）
+- Docker Desktop（Redis 统一用 Docker 跑：`docker compose up -d`；未开 Docker 时后端自动降级运行，主流程不受影响）
 
-### 2. 初始化数据库
+### 2. 启动 Redis（Docker 一键）
+```bash
+docker compose up -d
+docker exec canteen-redis redis-cli ping   # 返回 PONG 即成功
+```
+> 本机装过原生 Redis 的先停用（管理员执行 `net stop Redis`），避免 6379 端口冲突。
+> 详见 `docs/环境安装_Redis.md`。
+
+### 3. 初始化数据库
 用 Navicat 或命令行执行 `sql/schema.sql`（已含建库建表）。
 
-### 3. 启动后端
+### 4. 启动后端
 ```bash
 cd backend
 mvn spring-boot:run
@@ -43,7 +51,7 @@ mvn spring-boot:run
 - 健康检查：http://localhost:8080/api/health
 - 接口文档：http://localhost:8080/doc.html
 
-### 4. 启动前端
+### 5. 启动前端
 ```bash
 cd frontend
 npm install

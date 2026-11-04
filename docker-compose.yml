@@ -1,0 +1,14 @@
+# ============================================================
+# 本地开发环境编排（组员 C 维护）
+# 用法：docker compose up -d
+# 验证：docker exec canteen-redis redis-cli ping  →  PONG
+# 说明：无密码（与 application.yml 对齐）；Docker Desktop 开启时会自动拉起
+#       本机装过原生 Redis 的先停用（net stop Redis），避免 6379 端口冲突
+# ============================================================
+services:
+  redis:
+    image: redis:6-alpine
+    container_name: canteen-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
