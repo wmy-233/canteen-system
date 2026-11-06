@@ -74,15 +74,24 @@ const router = createRouter({
 // 1. 未登录访问受保护页面 → /login
 // 2. 已登录访问 /login → 按角色跳回自己的布局
 // 3. 角色越权访问（如学生访问 /admin）→ 踢回自己的首页
+// 判断当前登录状态是否有效：有 token 且角色是三种合法角色之一
+// （防止 localStorage 里残留旧 token 导致空白页）
+function hasValidLogin(userStore) {
+  return userStore.token && !!ROLE_HOME[userStore.role]
+}
+
 router.beforeEach((to) => {
   const userStore = useUserStore()
 
-  if (to.path === '/login') {
-    return userStore.token ? (ROLE_HOME[userStore.role] || '/login') : true
+  if (!hasValidLogin(userStore)) {
+    // token 或角色无效：清掉残留状态，避免循环重定向
+    userStore.logout()
+    return to.path === '/login' ? true : { path: '/login', query: { redirect: to.fullPath } }
   }
 
-  if (!userStore.token) {
-    return { path: '/login', query: { redirect: to.fullPath } }
+  // 已登录（且角色有效）访问 /login → 跳回自己的首页（role 有效保证不会死循环）
+  if (to.path === '/login') {
+    return ROLE_HOME[userStore.role]
   }
 
   const roles = to.meta.roles
