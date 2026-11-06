@@ -19,7 +19,7 @@ canteen-system/
 ├── backend/    后端工程（Spring Boot）
 ├── frontend/   前端工程（VUE3 + Vite）
 ├── sql/        数据库脚本（schema.sql 建表 + init_data.sql 初始数据）
-└── docs/       需求分析 / 系统设计 / 操作手册
+└── docs/       软件需求规格说明书 / 系统设计 / 操作手册
 ```
 
 ## 本地启动步骤
