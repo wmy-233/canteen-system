@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 购物车 Mapper -->
+<mapper namespace="com.canteen.mapper.CartItemMapper">
+
+    <select id="selectCartList" resultType="com.canteen.vo.CartVO">
+        SELECT
+            ci.id,
+            ci.dish_id,
+            d.name AS dish_name,
+            d.image,
+            d.price,
+            ci.quantity,
+            d.stall_id,
+            s.name AS stall_name
+        FROM cart_item ci
+        JOIN dish d ON d.id = ci.dish_id
+        JOIN stall s ON s.id = d.stall_id
+        WHERE ci.user_id = #{userId}
+        ORDER BY ci.create_time ASC
+    </select>
+
+    <select id="selectQuantityByUserAndDish" resultType="long">
+        SELECT quantity
+        FROM cart_item
+        WHERE user_id = #{userId} AND dish_id = #{dishId}
+        LIMIT 1
+    </select>
+
+    <insert id="insert">
+        INSERT INTO cart_item (user_id, dish_id, quantity)
+        VALUES (#{userId}, #{dishId}, #{quantity})
+    </insert>
+
+    <update id="updateQuantity">
+        UPDATE cart_item
+        SET quantity = #{quantity}
+        WHERE user_id = #{userId} AND dish_id = #{dishId}
+    </update>
+
+    <delete id="deleteByIdAndUser">
+        DELETE FROM cart_item
+        WHERE id = #{id} AND user_id = #{userId}
+    </delete>
+
+    <delete id="deleteByUserId">
+        DELETE FROM cart_item WHERE user_id = #{userId}
+    </delete>
+
+    <delete id="deleteByUserAndDishIds">
+        DELETE FROM cart_item
+        WHERE user_id = #{userId}
+          AND dish_id IN
+        <foreach collection="dishIds" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

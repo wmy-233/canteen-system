@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 钱包流水 Mapper -->
+<mapper namespace="com.canteen.mapper.WalletRecordMapper">
+
+    <insert id="insert">
+        INSERT INTO wallet_record (user_id, type, amount, ref_order_no)
+        VALUES (#{userId}, #{type}, #{amount}, #{refOrderNo})
+    </insert>
+
+    <select id="selectPageByUserId" resultType="com.canteen.vo.WalletRecordVO">
+        SELECT id, type, amount, ref_order_no, create_time
+        FROM wallet_record
+        WHERE user_id = #{userId}
+        ORDER BY create_time DESC, id DESC
+    </select>
+
+</mapper>

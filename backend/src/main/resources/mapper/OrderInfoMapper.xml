@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 订单主表 Mapper -->
+<mapper namespace="com.canteen.mapper.OrderInfoMapper">
+
+    <sql id="orderVoSelect">
+        SELECT
+            o.id,
+            o.order_no,
+            o.user_id,
+            u.nickname,
+            o.stall_id,
+            s.name AS stall_name,
+            o.total_amount,
+            o.discount_amount,
+            o.pay_amount,
+            o.pickup_code,
+            o.status,
+            o.delivery_type,
+            o.rider_id,
+            r.name AS rider_name,
+            o.delivery_status,
+            o.create_time
+        FROM order_info o
+        JOIN stall s ON s.id = o.stall_id
+        LEFT JOIN `user` u ON u.id = o.user_id
+        LEFT JOIN rider r ON r.id = o.rider_id
+    </sql>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO order_info
+            (order_no, user_id, stall_id, total_amount, discount_amount, pay_amount,
+             pickup_code, status, delivery_type, rider_id, delivery_status)
+        VALUES
+            (#{orderNo}, #{userId}, #{stallId}, #{totalAmount}, #{discountAmount}, #{payAmount},
+             #{pickupCode}, #{status}, #{deliveryType}, #{riderId}, #{deliveryStatus})
+    </insert>
+
+    <select id="selectById" resultType="com.canteen.entity.OrderInfo">
+        SELECT id, order_no, user_id, stall_id, total_amount, discount_amount, pay_amount,
+               pickup_code, status, delivery_type, rider_id, delivery_status, create_time, update_time
+        FROM order_info
+        WHERE id = #{id}
+        LIMIT 1
+    </select>
+
+    <select id="selectPageByUser" resultType="com.canteen.vo.OrderVO">
+        <include refid="orderVoSelect"/>
+        WHERE o.user_id = #{userId}
+        <if test="status != null">
+            AND o.status = #{status}
+        </if>
+        ORDER BY o.create_time DESC
+    </select>
+
+    <select id="selectPageByStallIds" resultType="com.canteen.vo.OrderVO">
+        <include refid="orderVoSelect"/>
+        WHERE o.stall_id IN
+        <foreach collection="stallIds" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        <if test="status != null">
+            AND o.status = #{status}
+        </if>
+        ORDER BY o.create_time ASC
+    </select>
+
+    <select id="selectVoById" resultType="com.canteen.vo.OrderVO">
+        <include refid="orderVoSelect"/>
+        WHERE o.id = #{id}
+    </select>
+
+    <select id="selectPageDelivery" resultType="com.canteen.vo.OrderVO">
+        <include refid="orderVoSelect"/>
+        WHERE o.delivery_type = 1
+        <if test="deliveryStatus != null">
+            AND o.delivery_status = #{deliveryStatus}
+        </if>
+        ORDER BY o.create_time ASC
+    </select>
+
+    <select id="selectTodayPickupCodes" resultType="string">
+        SELECT pickup_code
+        FROM order_info
+        WHERE stall_id = #{stallId}
+          AND DATE(create_time) = CURDATE()
+          AND delivery_type = 0
+    </select>
+
+    <!-- 状态机条件流转：影响行数=0 即非法跳转 -->
+    <update id="updateStatusConditional">
+        UPDATE order_info
+        SET status = #{newStatus}
+        WHERE id = #{id} AND status = #{oldStatus}
+    </update>
+
+    <!-- 指派骑手：仅"未分配"可指派 -->
+    <update id="assignRider">
+        UPDATE order_info
+        SET rider_id = #{riderId}, delivery_status = 1
+        WHERE id = #{id} AND delivery_status = 0 AND status = 0
+    </update>
+
+    <!-- 标记送达：仅"配送中"可送达，同时订单进入已完成（解锁评价） -->
+    <update id="markDelivered">
+        UPDATE order_info
+        SET delivery_status = 2, status = 1
+        WHERE id = #{id} AND delivery_status = 1 AND status = 0
+    </update>
+
+</mapper>

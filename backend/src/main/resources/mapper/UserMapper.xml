@@ -28,4 +28,33 @@
         SELECT COUNT(*) FROM `user`
     </select>
 
+    <!-- 管理端用户列表：不返回 password，防泄露 -->
+    <select id="selectPage" resultType="com.canteen.vo.UserAdminVO">
+        SELECT id, username, nickname, phone, balance, status, create_time
+        FROM `user`
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (username LIKE CONCAT('%', #{keyword}, '%')
+                  OR nickname LIKE CONCAT('%', #{keyword}, '%')
+                  OR phone LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+        </where>
+        ORDER BY create_time DESC
+    </select>
+
+    <update id="updateStatus">
+        UPDATE `user` SET status = #{status} WHERE id = #{id}
+    </update>
+
+    <!-- 扣款原子化：余额不足时影响行数=0，Service 据此报"余额不足" -->
+    <update id="deductBalance">
+        UPDATE `user`
+        SET balance = balance - #{amount}
+        WHERE id = #{id} AND balance &gt;= #{amount}
+    </update>
+
+    <update id="addBalance">
+        UPDATE `user` SET balance = balance + #{amount} WHERE id = #{id}
+    </update>
+
 </mapper>

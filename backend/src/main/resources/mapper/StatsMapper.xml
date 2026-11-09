@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 统计聚合 Mapper -->
+<mapper namespace="com.canteen.mapper.StatsMapper">
+
+    <select id="selectTrendByStalls" resultType="com.canteen.vo.DailyStatVO">
+        SELECT DATE_FORMAT(o.create_time, '%Y-%m-%d') AS statDate,
+               IFNULL(SUM(oi.price * oi.quantity), 0) AS turnover,
+               COUNT(DISTINCT o.id) AS orderCount
+        FROM order_info o
+        JOIN order_item oi ON oi.order_id = o.id
+        WHERE o.status != 2
+          AND o.create_time &gt;= DATE_SUB(CURDATE(), INTERVAL #{days} DAY)
+          AND o.stall_id IN
+        <foreach collection="stallIds" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        GROUP BY statDate
+        ORDER BY statDate ASC
+    </select>
+
+    <select id="selectTrendAll" resultType="com.canteen.vo.DailyStatVO">
+        SELECT DATE_FORMAT(o.create_time, '%Y-%m-%d') AS statDate,
+               IFNULL(SUM(oi.price * oi.quantity), 0) AS turnover,
+               COUNT(DISTINCT o.id) AS orderCount
+        FROM order_info o
+        JOIN order_item oi ON oi.order_id = o.id
+        WHERE o.status != 2
+          AND o.create_time &gt;= DATE_SUB(CURDATE(), INTERVAL #{days} DAY)
+        GROUP BY statDate
+        ORDER BY statDate ASC
+    </select>
+
+    <select id="selectTopDishesByStalls" resultType="com.canteen.vo.DishStatVO">
+        SELECT oi.dish_id AS dishId, oi.dish_name AS dishName,
+               SUM(oi.quantity) AS sold,
+               SUM(oi.price * oi.quantity) AS turnover
+        FROM order_item oi
+        JOIN order_info o ON o.id = oi.order_id
+        WHERE o.status != 2
+          AND o.create_time &gt;= DATE_SUB(CURDATE(), INTERVAL #{days} DAY)
+          AND o.stall_id IN
+        <foreach collection="stallIds" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        GROUP BY oi.dish_id, oi.dish_name
+        ORDER BY sold DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectOverview" resultType="map">
+        SELECT IFNULL(SUM(pay_amount), 0) AS totalGmv,
+               COUNT(*) AS totalOrders
+        FROM order_info
+        WHERE status != 2
+    </select>
+
+    <select id="selectTodayOverview" resultType="map">
+        SELECT IFNULL(SUM(pay_amount), 0) AS todayGmv,
+               COUNT(*) AS todayOrders
+        FROM order_info
+        WHERE status != 2
+          AND create_time &gt;= CURDATE()
+    </select>
+
+    <select id="selectStallRanking" resultType="com.canteen.vo.StallStatVO">
+        SELECT s.id AS stallId, s.name AS stallName,
+               IFNULL(SUM(o.pay_amount), 0) AS gmv,
+               COUNT(o.id) AS orderCount
+        FROM stall s
+        LEFT JOIN order_info o ON o.stall_id = s.id AND o.status != 2
+        GROUP BY s.id, s.name
+        ORDER BY gmv DESC
+    </select>
+
+    <select id="countUsers" resultType="int">
+        SELECT COUNT(*) FROM `user`
+    </select>
+
+    <select id="countOpenStalls" resultType="int">
+        SELECT COUNT(*) FROM stall WHERE status = 1
+    </select>
+
+</mapper>

@@ -26,7 +26,23 @@ public class GlobalExceptionHandler {
         return Result.fail(403, "无权限访问该资源");
     }
 
+    /** 校验参数不合法（@Validated 抛出） */
+    @ExceptionHandler(org.springframework.web.bind.MethodArgumentNotValidException.class)
+    public Result<Void> handleValidation(org.springframework.web.bind.MethodArgumentNotValidException e) {
+        String message = e.getBindingResult().getFieldErrors().stream()
+                .map(error -> error.getDefaultMessage())
+                .collect(java.util.stream.Collectors.joining("；"));
+        return Result.fail(message);
+    }
+
     /** 业务异常 */
+    @ExceptionHandler(BizException.class)
+    public Result<Void> handleBiz(BizException e) {
+        log.warn("业务失败: {}", e.getMessage());
+        return Result.fail(e.getMessage());
+    }
+
+    /** 业务异常（RuntimeException 兜底，如 IllegalArgumentException 等） */
     @ExceptionHandler(RuntimeException.class)
     public Result<Void> handleRuntimeException(RuntimeException e) {
         log.error("业务异常: {}", e.getMessage(), e);

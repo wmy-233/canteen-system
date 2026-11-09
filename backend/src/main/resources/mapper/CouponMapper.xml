@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 优惠券 Mapper -->
+<mapper namespace="com.canteen.mapper.CouponMapper">
+
+    <select id="selectIssuing" resultType="com.canteen.vo.CouponVO">
+        SELECT id, name, threshold, amount, stock, expire_time, status
+        FROM coupon
+        WHERE status = 1 AND stock &gt; 0 AND expire_time &gt; NOW()
+        ORDER BY amount DESC
+    </select>
+
+    <select id="selectAll" resultType="com.canteen.entity.Coupon">
+        SELECT id, name, threshold, amount, stock, expire_time, status
+        FROM coupon
+        ORDER BY status DESC, create_time DESC
+    </select>
+
+    <select id="selectById" resultType="com.canteen.entity.Coupon">
+        SELECT id, name, threshold, amount, stock, expire_time, status
+        FROM coupon
+        WHERE id = #{id}
+        LIMIT 1
+    </select>
+
+    <select id="selectBestForUser" resultType="com.canteen.vo.CouponVO">
+        SELECT c.id, c.name, c.threshold, c.amount, c.stock, c.expire_time, c.status
+        FROM coupon c
+        JOIN user_coupon uc ON uc.coupon_id = c.id
+        WHERE uc.user_id = #{userId}
+          AND uc.used = 0
+          AND c.status = 1
+          AND c.expire_time &gt; NOW()
+          AND c.threshold &lt;= #{totalAmount}
+        ORDER BY c.amount DESC
+        LIMIT 1
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO coupon (name, threshold, amount, stock, expire_time, status)
+        VALUES (#{name}, #{threshold}, #{amount}, #{stock}, #{expireTime}, 1)
+    </insert>
+
+    <update id="decrementStock">
+        UPDATE coupon SET stock = stock - 1 WHERE id = #{id} AND stock &gt; 0
+    </update>
+
+</mapper>

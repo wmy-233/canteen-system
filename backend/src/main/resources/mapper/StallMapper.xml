@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 档口 Mapper -->
+<mapper namespace="com.canteen.mapper.StallMapper">
+
+    <select id="selectOpen" resultType="com.canteen.entity.Stall">
+        SELECT id, canteen_id, merchant_user_id, name, status, create_time
+        FROM stall
+        WHERE status = 1
+        <if test="canteenId != null">
+            AND canteen_id = #{canteenId}
+        </if>
+        ORDER BY id
+    </select>
+
+    <select id="selectAll" resultType="com.canteen.entity.Stall">
+        SELECT id, canteen_id, merchant_user_id, name, status, create_time
+        FROM stall
+        <where>
+            <if test="status != null">
+                status = #{status}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+    </select>
+
+    <select id="selectByMerchantUserId" resultType="com.canteen.entity.Stall">
+        SELECT id, canteen_id, merchant_user_id, name, status, create_time
+        FROM stall
+        WHERE merchant_user_id = #{merchantUserId}
+        ORDER BY id
+    </select>
+
+    <select id="selectById" resultType="com.canteen.entity.Stall">
+        SELECT id, canteen_id, merchant_user_id, name, status, create_time
+        FROM stall
+        WHERE id = #{id}
+        LIMIT 1
+    </select>
+
+    <update id="updateSelective">
+        UPDATE stall
+        <set>
+            <if test="name != null">name = #{name},</if>
+            <if test="status != null">status = #{status},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateStatus">
+        UPDATE stall SET status = #{status} WHERE id = #{id}
+    </update>
+
+</mapper>

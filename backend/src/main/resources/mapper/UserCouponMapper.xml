@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 用户领券 Mapper -->
+<mapper namespace="com.canteen.mapper.UserCouponMapper">
+
+    <select id="countOwned" resultType="int">
+        SELECT COUNT(*) FROM user_coupon
+        WHERE user_id = #{userId} AND coupon_id = #{couponId}
+    </select>
+
+    <select id="selectById" resultType="com.canteen.entity.UserCoupon">
+        SELECT id, user_id, coupon_id, used, create_time
+        FROM user_coupon
+        WHERE id = #{id}
+        LIMIT 1
+    </select>
+
+    <select id="selectUnusedRecordId" resultType="long">
+        SELECT id FROM user_coupon
+        WHERE user_id = #{userId} AND coupon_id = #{couponId} AND used = 0
+        ORDER BY create_time ASC
+        LIMIT 1
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO user_coupon (user_id, coupon_id, used) VALUES (#{userId}, #{couponId}, 0)
+    </insert>
+
+    <select id="selectMine" resultType="com.canteen.vo.CouponVO">
+        SELECT c.id, c.name, c.threshold, c.amount, c.stock, c.expire_time, c.status, uc.used
+        FROM user_coupon uc
+        JOIN coupon c ON c.id = uc.coupon_id
+        WHERE uc.user_id = #{userId}
+        ORDER BY uc.used ASC, c.expire_time ASC
+    </select>
+
+    <update id="markUsed">
+        UPDATE user_coupon SET used = 1
+        WHERE id = #{id} AND user_id = #{userId} AND used = 0
+    </update>
+
+    <update id="restore">
+        UPDATE user_coupon SET used = 0
+        WHERE id = #{id} AND user_id = #{userId}
+    </update>
+
+    <select id="selectLatestUsedIdForRestore" resultType="long">
+        SELECT uc.id
+        FROM user_coupon uc
+        JOIN coupon c ON c.id = uc.coupon_id
+        WHERE uc.user_id = #{userId}
+          AND uc.used = 1
+          AND c.amount = #{discountAmount}
+        ORDER BY uc.create_time DESC, uc.id DESC
+        LIMIT 1
+    </select>
+
+</mapper>

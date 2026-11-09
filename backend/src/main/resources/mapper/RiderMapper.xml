@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 骑手 Mapper -->
+<mapper namespace="com.canteen.mapper.RiderMapper">
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO rider (user_id, name, phone, status)
+        VALUES (#{userId}, #{name}, #{phone}, #{status})
+    </insert>
+
+    <select id="selectById" resultType="com.canteen.entity.Rider">
+        SELECT id, user_id, name, phone, status, create_time
+        FROM rider
+        WHERE id = #{id}
+        LIMIT 1
+    </select>
+
+    <select id="selectByUserId" resultType="com.canteen.entity.Rider">
+        SELECT id, user_id, name, phone, status, create_time
+        FROM rider
+        WHERE user_id = #{userId}
+        LIMIT 1
+    </select>
+
+    <select id="selectPage" resultType="com.canteen.vo.RiderVO">
+        SELECT r.id, r.user_id, u.username, r.name, r.phone, r.status, r.create_time
+        FROM rider r
+        JOIN `user` u ON u.id = r.user_id
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (r.name LIKE CONCAT('%', #{keyword}, '%')
+                  OR r.phone LIKE CONCAT('%', #{keyword}, '%')
+                  OR u.username LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+        </where>
+        ORDER BY r.status DESC, r.create_time DESC
+    </select>
+
+    <update id="updateSelective">
+        UPDATE rider
+        <set>
+            <if test="name != null">name = #{name},</if>
+            <if test="phone != null">phone = #{phone},</if>
+            <if test="status != null">status = #{status},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+</mapper>
