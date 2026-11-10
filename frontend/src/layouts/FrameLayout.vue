@@ -10,6 +10,12 @@
         <span class="role-tag">
           <el-tag :type="roleType" size="small" effect="light" round>{{ roleLabel }}</el-tag>
         </span>
+        <!-- 站内消息铃铛 -->
+        <el-badge :value="unreadCount" :hidden="unreadCount === 0" :max="99" class="bell-wrap">
+          <button type="button" class="bell-btn" title="消息中心" @click="goMessages">
+            🔔
+          </button>
+        </el-badge>
         <div class="user-chip">
           <el-avatar :size="30" class="avatar">{{ avatarLetter }}</el-avatar>
           <span class="welcome">{{ userStore.userInfo?.nickname || userStore.userInfo?.username || '用户' }}</span>
@@ -61,22 +67,28 @@ const MENU_CONFIG = {
     { path: '/student', title: '首页', icon: 'HomeFilled' },
     { path: '/student/menu', title: '菜品浏览', icon: 'Dish' },
     { path: '/student/orders', title: '我的订单', icon: 'List' },
+    { path: '/student/coupons', title: '优惠券', icon: 'Ticket' },
+    { path: '/student/complaints', title: '我的投诉', icon: 'ChatDotRound' },
     { path: '/student/wallet', title: '我的钱包', icon: 'Wallet' },
-    { path: '/student/coupons', title: '优惠券', icon: 'Ticket' }
+    { path: '/student/messages', title: '消息中心', icon: 'Bell' }
   ],
   '/merchant': [
     { path: '/merchant', title: '经营首页', icon: 'HomeFilled' },
     { path: '/merchant/dishes', title: '菜品管理', icon: 'Dish' },
     { path: '/merchant/orders', title: '出餐看板', icon: 'List' },
-    { path: '/merchant/stats', title: '销量统计', icon: 'TrendCharts' }
+    { path: '/merchant/complaints', title: '投诉处理', icon: 'ChatDotRound' },
+    { path: '/merchant/stats', title: '销量统计', icon: 'TrendCharts' },
+    { path: '/merchant/messages', title: '消息中心', icon: 'Bell' }
   ],
   '/admin': [
     { path: '/admin', title: '总览首页', icon: 'HomeFilled' },
     { path: '/admin/users', title: '用户管理', icon: 'User' },
     { path: '/admin/merchants', title: '档口审核', icon: 'Shop' },
     { path: '/admin/riders', title: '骑手调度', icon: 'Van' },
+    { path: '/admin/complaints', title: '投诉管理', icon: 'ChatDotRound' },
     { path: '/admin/coupons', title: '优惠券管理', icon: 'Ticket' },
-    { path: '/admin/stats', title: '全局统计', icon: 'TrendCharts' }
+    { path: '/admin/stats', title: '全局统计', icon: 'TrendCharts' },
+    { path: '/admin/messages', title: '消息中心', icon: 'Bell' }
   ]
 }
 
@@ -108,6 +120,31 @@ function handleLogout() {
   userStore.logout()
   router.push('/login')
 }
+
+// ---------- 站内消息：铃铛未读角标（30s 轮询） ----------
+import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { messageUnreadCount } from '../api/message'
+
+const unreadCount = ref(0)
+let msgTimer = null
+
+async function refreshUnread() {
+  try {
+    const res = await messageUnreadCount()
+    unreadCount.value = res.data ?? 0
+  } catch { /* 忽略轮询失败 */ }
+}
+
+function goMessages() {
+  // 未读一次性清零（页面内仍有列表可逐条已读）
+  router.push('/' + (userStore.role || 'student').toLowerCase() + '/messages')
+}
+
+onMounted(() => {
+  refreshUnread()
+  msgTimer = setInterval(refreshUnread, 30000)
+})
+onBeforeUnmount(() => { if (msgTimer) clearInterval(msgTimer) });
 </script>
 
 <style scoped>
@@ -196,6 +233,23 @@ function handleLogout() {
   background: var(--ac);
   color: #fff;
   font-size: 14px;
+}
+/* 消息铃铛 */
+.bell-wrap { margin: 0 6px; }
+.bell-btn {
+  border: none;
+  background: #f6f4ec;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  line-height: 1;
+}
+.bell-btn:hover {
+  background: var(--ac);
+  filter: grayscale(0.1);
 }
 .welcome {
   color: #8a8b7a;

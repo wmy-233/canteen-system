@@ -41,6 +41,7 @@ public class UserServiceImpl implements UserService {
     private final RoleMapper roleMapper;
     private final StallMapper stallMapper;
     private final CanteenMapper canteenMapper;
+    private final com.canteen.common.MessageSender messageSender;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
 
@@ -92,10 +93,15 @@ public class UserServiceImpl implements UserService {
         stall.setName(request.getStallName().trim());
         stall.setStatus(2);
         stallMapper.insert(stall);
+
+        // 7. 站内消息：通知全体管理员"有新的入驻申请"
+        messageSender.sendToRole("ADMIN", "收到新的档口入驻申请",
+                "商家「" + user.getUsername() + "」申请入驻档口『" + stall.getName() + "』，请前往档口审核处理",
+                com.canteen.common.MessageSender.TYPE_AUDIT);
         log.info("商家入驻申请: username={}, stallName={}, canteenId={}, 请管理员审核",
                 user.getUsername(), stall.getName(), stall.getCanteenId());
 
-        // 7. 直接返回登录态（可进商家端完善菜品，出餐审核通过后即可营业）
+        // 8. 直接返回登录态（可进商家端完善菜品，出餐审核通过后即可营业）
         return buildLoginResponse(user, MERCHANT_ROLE);
     }
 

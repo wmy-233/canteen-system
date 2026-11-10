@@ -39,6 +39,7 @@ public class RiderServiceImpl implements RiderService {
     private final RoleMapper roleMapper;
     private final OrderInfoMapper orderInfoMapper;
     private final PasswordEncoder passwordEncoder;
+    private final com.canteen.common.MessageSender messageSender;
 
     @Override
     public PageResult<RiderVO> page(String keyword, Integer pageNum, Integer pageSize) {
@@ -129,6 +130,12 @@ public class RiderServiceImpl implements RiderService {
             checkOrderExists(dto.getOrderId());
             throw new BizException("该配送单当前不可指派");
         }
+        // 站内消息：通知学生配送安排
+        com.canteen.entity.OrderInfo order = orderInfoMapper.selectById(dto.getOrderId());
+        messageSender.send(order.getUserId(), "你的外卖开始配送 🛵",
+                "订单 " + order.getOrderNo() + " 已安排骑手「" + rider.getName() + "」配送"
+                        + (rider.getPhone() != null ? "，联系方式 " + rider.getPhone() : ""),
+                com.canteen.common.MessageSender.TYPE_DELIVERY);
         log.info("配送单指派: orderId={}, riderId={}", dto.getOrderId(), dto.getRiderId());
     }
 
@@ -139,6 +146,11 @@ public class RiderServiceImpl implements RiderService {
         if (rows == 0) {
             throw new BizException("仅配送中的订单可标记送达");
         }
+        // 站内消息：通知学生已送达
+        com.canteen.entity.OrderInfo order = orderInfoMapper.selectById(orderId);
+        messageSender.send(order.getUserId(), "配送已完成 🎉",
+                "订单 " + order.getOrderNo() + " 已送达，祝用餐愉快！如遇问题可对该订单发起投诉",
+                com.canteen.common.MessageSender.TYPE_DELIVERY);
         log.info("配送送达: orderId={}", orderId);
     }
 

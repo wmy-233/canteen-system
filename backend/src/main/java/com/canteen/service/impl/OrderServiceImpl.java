@@ -57,6 +57,7 @@ public class OrderServiceImpl implements OrderService {
     private final OrderTxService orderTxService;
     private final RedisStockService redisStockService;
     private final RedisSupport redisSupport;
+    private final com.canteen.common.MessageSender messageSender;
 
     @Override
     public OrderCreateVO create(OrderCreateDTO dto) {
@@ -262,6 +263,11 @@ public class OrderServiceImpl implements OrderService {
         if (rows == 0) {
             throw new BizException("订单状态已变化，核销失败");
         }
+        // 站内消息：通知学生"已出餐"
+        messageSender.send(order.getUserId(), "你的订单已出餐 ✅",
+                "档口已完成订单 " + order.getOrderNo() + "，取餐码 "
+                        + order.getPickupCode() + "，请在取餐处出示该码",
+                com.canteen.common.MessageSender.TYPE_ORDER);
         log.info("核销出餐: orderId={}, 取餐码={}, operator={}", orderId, order.getPickupCode(), merchantUserId);
     }
 

@@ -24,6 +24,8 @@ const routes = [
       { path: 'orders', component: () => import('../views/student/Orders.vue') },
       { path: 'wallet', component: () => import('../views/student/Wallet.vue') },
       { path: 'coupons', component: () => import('../views/student/Coupons.vue') },
+      { path: 'complaints', component: () => import('../views/student/Complaints.vue') },
+      { path: 'messages', component: () => import('../views/common/MessageCenter.vue') },
       { path: 'dining', ...placeholder('食堂堂食') }
     ]
   },
@@ -37,7 +39,9 @@ const routes = [
       { path: '', component: () => import('../views/merchant/Dashboard.vue') },
       { path: 'dishes', component: () => import('../views/merchant/Dishes.vue') },
       { path: 'orders', component: () => import('../views/merchant/OrderBoard.vue') },
-      { path: 'stats', component: () => import('../views/merchant/Stats.vue') }
+      { path: 'stats', component: () => import('../views/merchant/Stats.vue') },
+      { path: 'complaints', component: () => import('../views/merchant/Complaints.vue') },
+      { path: 'messages', component: () => import('../views/common/MessageCenter.vue') }
     ]
   },
 
@@ -52,7 +56,9 @@ const routes = [
       { path: 'merchants', component: () => import('../views/admin/StallAudit.vue') },
       { path: 'riders', component: () => import('../views/admin/Riders.vue') },
       { path: 'coupons', component: () => import('../views/admin/Coupons.vue') },
-      { path: 'stats', component: () => import('../views/admin/Stats.vue') }
+      { path: 'stats', component: () => import('../views/admin/Stats.vue') },
+      { path: 'complaints', component: () => import('../views/admin/Complaints.vue') },
+      { path: 'messages', component: () => import('../views/common/MessageCenter.vue') }
     ]
   },
 

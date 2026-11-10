@@ -143,8 +143,8 @@ onMounted(async () => {
 .hero-btns { margin-top: 16px; display: flex; gap: 10px; }
 .hb.primary { background: #fffdf2; border: none; color: #5f6543; font-weight: 600; }
 .hb.primary:hover { background: #fff; color: #4a5033; }
-.hb { border-color: rgba(255, 255, 255, 0.6); color: #fff; }
-.hb:hover { border-color: #fff; color: #fff; }
+.hb { background: rgba(255, 255, 255, 0.55); border: none; color: #5f6543; font-weight: 600; }
+.hb:hover { background: rgba(255, 255, 255, 0.85); color: #4a5033; }
 
 /* 余额玻璃小卡 */
 .hero-card {

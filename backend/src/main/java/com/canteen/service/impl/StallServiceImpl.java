@@ -22,6 +22,7 @@ import java.util.List;
 public class StallServiceImpl implements StallService {
 
     private final StallMapper stallMapper;
+    private final com.canteen.common.MessageSender messageSender;
 
     @Override
     public List<StallVO> listMine(Long merchantUserId) {
@@ -62,6 +63,13 @@ public class StallServiceImpl implements StallService {
         // 通过=1 营业；驳回=0 停业
         int newStatus = Boolean.TRUE.equals(dto.getPass()) ? 1 : 0;
         stallMapper.updateStatus(stallId, newStatus);
+        // 站内消息通知商家审核结果
+        messageSender.send(stall.getMerchantUserId(),
+                Boolean.TRUE.equals(dto.getPass()) ? "档口审核通过 🎉" : "档口审核未通过",
+                Boolean.TRUE.equals(dto.getPass())
+                        ? "你的档口『" + stall.getName() + "』已通过审核，正式进入营业状态，可上架菜品接单啦！"
+                        : "你申请的档口『" + stall.getName() + "』未通过审核，若有疑问请联系管理员复核。",
+                com.canteen.common.MessageSender.TYPE_AUDIT);
         log.info("档口审核: stallId={}, 结果={}", stallId, Boolean.TRUE.equals(dto.getPass()) ? "通过" : "驳回");
     }
 

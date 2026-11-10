@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.canteen.mapper.SysMessageMapper">
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO sys_message (user_id, title, content, type)
+        VALUES (#{userId}, #{title}, #{content}, #{type})
+    </insert>
+
+    <!-- 发给某角色全部启用账号（INSERT SELECT 一条 SQL搞定） -->
+    <insert id="insertForRole">
+        INSERT INTO sys_message (user_id, title, content, type)
+        SELECT u.id, #{title}, #{content}, #{type}
+        FROM `user` u
+        JOIN user_role ur ON ur.user_id = u.id
+        JOIN `role` r ON r.id = ur.role_id
+        WHERE r.role_code = #{roleCode} AND u.status = 1
+    </insert>
+
+    <select id="countUnread" resultType="long">
+        SELECT COUNT(*) FROM sys_message WHERE user_id = #{userId} AND is_read = 0
+    </select>
+
+    <select id="selectPage" resultType="com.canteen.entity.SysMessage">
+        SELECT * FROM sys_message
+        <where>
+            user_id = #{userId}
+            <if test="isRead != null">AND is_read = #{isRead}</if>
+        </where>
+        ORDER BY create_time DESC, id DESC
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
+    <select id="countPage" resultType="long">
+        SELECT COUNT(*) FROM sys_message
+        <where>
+            user_id = #{userId}
+            <if test="isRead != null">AND is_read = #{isRead}</if>
+        </where>
+    </select>
+
+    <update id="markRead">
+        UPDATE sys_message SET is_read = 1 WHERE id = #{id} AND user_id = #{userId}
+    </update>
+
+    <update id="markAllRead">
+        UPDATE sys_message SET is_read = 1 WHERE user_id = #{userId} AND is_read = 0
+    </update>
+
+</mapper>

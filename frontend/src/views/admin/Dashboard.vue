@@ -156,8 +156,8 @@ onBeforeUnmount(() => {
 .hero-btns { margin-top: 16px; }
 .hb.primary { background: #fffdf2; border: none; color: #4a5b68; font-weight: 600; }
 .hb.primary:hover { background: #fff; color: #37454f; }
-.hb { border-color: rgba(255, 255, 255, 0.6); color: #fff; }
-.hb:hover { border-color: #fff; color: #fff; }
+.hb { background: rgba(255, 255, 255, 0.55); border: none; color: #4a5b68; font-weight: 600; }
+.hb:hover { background: rgba(255, 255, 255, 0.85); color: #37454f; }
 
 .clock-card {
   background: rgba(255, 255, 255, 0.18);

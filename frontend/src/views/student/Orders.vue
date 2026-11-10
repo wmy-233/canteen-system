@@ -39,6 +39,7 @@
             <span class="o-pay">实付 <b>¥{{ fmt(o.payAmount) }}</b></span>
             <el-button v-if="o.status === 0" size="small" type="danger" round plain @click="cancel(o)">取消订单</el-button>
             <el-button v-if="o.status === 1 && o.items?.length" size="small" round @click="openReview(o)">评价</el-button>
+            <el-button size="small" round plain type="warning" @click="openComplaint(o)">投诉</el-button>
           </div>
         </div>
       </el-card>
@@ -52,6 +53,33 @@
       layout="prev, pager, next" background class="pager"
       @current-change="load"
     />
+
+    <!-- 投诉弹窗 -->
+    <el-dialog v-model="complaintVisible" title="📮 发起投诉" width="440px">
+      <p class="cmp-tip">订单 <b>{{ complaintOrder?.orderNo }}</b> · {{ complaintOrder?.stallName }}
+        <span style="color:#9b9d84">（投诉后由商家回应、管理员裁定，金可用进度请在「我的投诉」查看）</span></p>
+      <el-form label-position="top">
+        <el-form-item label="投诉类型" required>
+          <el-radio-group v-model="complaintForm.type">
+            <el-radio :value="1">菜品质量</el-radio>
+            <el-radio :value="2">漏发缺件</el-radio>
+            <el-radio :value="3">配送问题</el-radio>
+            <el-radio :value="4">服务态度</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="问题描述（5-300字）" required>
+          <el-input
+            v-model="complaintForm.content"
+            type="textarea" :rows="4" maxlength="300" show-word-limit
+            placeholder="请客观描述遇到的问题，管理员会据此核实裁定"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="complaintVisible = false">取消</el-button>
+        <el-button type="primary" :loading="complaintSubmitting" :disabled="complaintForm.content.trim().length < 5" @click="submitComplaint">提交投诉</el-button>
+      </template>
+    </el-dialog>
 
     <!-- 评价弹窗（已完成订单逐菜品评分） -->
     <el-dialog v-model="reviewVisible" title="给这单打个分吧 ✨" width="460px">
@@ -77,6 +105,7 @@ import {
   ORDER_STATUS,
   orderCancel, orderPage, reviewByOrder, reviewCreate
 } from '../../api/order'
+import { COMPLAINT_TYPE, complaintCreate } from '../../api/complaint'
 
 const ORDER_STATUS_MAP = ORDER_STATUS
 
@@ -154,6 +183,33 @@ async function submitReview() {
   }
 }
 
+// ---------- 投诉 ----------
+const complaintVisible = ref(false)
+const complaintSubmitting = ref(false)
+const complaintOrder = ref(null)
+const complaintForm = reactive({ type: 1, content: '' })
+
+function openComplaint(o) {
+  complaintOrder.value = o
+  Object.assign(complaintForm, { type: 1, content: '' })
+  complaintVisible.value = true
+}
+
+async function submitComplaint() {
+  complaintSubmitting.value = true
+  try {
+    await complaintCreate({
+      orderId: complaintOrder.value.id,
+      type: complaintForm.type,
+      content: complaintForm.content
+    })
+    ElMessage.success('投诉已提交！商家回应与管理员裁定将通过「消息中心」通知你')
+    complaintVisible.value = false
+  } finally {
+    complaintSubmitting.value = false
+  }
+}
+
 onMounted(load)
 </script>
 
@@ -202,6 +258,7 @@ onMounted(load)
 .o-pay { color: #5e5f4e; font-size: 13px; }
 .o-pay b { color: #b0714f; font-size: 16px; }
 .rev-row { padding: 8px 0; }
+.cmp-tip { font-size: 13px; color: #5e5f4e; margin: 0 0 10px; }
 .rev-name { font-weight: 600; font-size: 14px; color: #4f5040; margin-bottom: 4px; }
 .pager { margin-top: 16px; justify-content: center; }
 </style>

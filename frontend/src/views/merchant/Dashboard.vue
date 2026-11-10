@@ -131,8 +131,8 @@ onMounted(load)
 .hero-btns { margin-top: 16px; }
 .hb.primary { background: #fffdf2; border: none; color: #7a5c45; font-weight: 600; }
 .hb.primary:hover { background: #fff; color: #5d4636; }
-.hb { border-color: rgba(255, 255, 255, 0.6); color: #fff; }
-.hb:hover { border-color: #fff; color: #fff; }
+.hb { background: rgba(255, 255, 255, 0.55); border: none; color: #7a5c45; font-weight: 600; }
+.hb:hover { background: rgba(255, 255, 255, 0.85); color: #5d4636; }
 .traffic-ring { flex: none; }
 .ring-num { font-size: 30px; font-weight: 800; color: #4a3b30; }
 .ring-label { font-size: 11.5px; color: #6d5648; margin-top: 2px; }

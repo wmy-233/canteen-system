@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.canteen.mapper.ComplaintMapper">
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO complaint (order_id, student_user_id, stall_id, type, content, status)
+        VALUES (#{orderId}, #{studentUserId}, #{stallId}, #{type}, #{content}, 0)
+    </insert>
+
+    <select id="selectById" resultType="com.canteen.entity.Complaint">
+        SELECT * FROM complaint WHERE id = #{id}
+    </select>
+
+    <select id="selectMine" resultType="map">
+        SELECT c.*,        /* 实体字段 camelCase 由 map 下划线转驼峰自动映射 */
+               s.name AS stall_name,
+               o.order_no AS order_no
+        FROM complaint c
+        JOIN stall s ON s.id = c.stall_id
+        JOIN order_info o ON o.id = c.order_id
+        WHERE c.student_user_id = #{userId}
+        ORDER BY c.create_time DESC, c.id DESC
+    </select>
+
+    <select id="selectByStall" resultType="map">
+        SELECT c.*,
+               o.order_no AS order_no,
+               u.nickname AS student_name
+        FROM complaint c
+        JOIN order_info o ON o.id = c.order_id
+        JOIN `user` u ON u.id = c.student_user_id
+        <where>
+            c.stall_id IN
+            <foreach collection="stallIds" item="sid" open="(" separator="," close=")">#{sid}</foreach>
+            <if test="status != null">AND c.status = #{status}</if>
+        </where>
+        ORDER BY c.status ASC, c.create_time DESC
+    </select>
+
+    <select id="selectAll" resultType="map">
+        SELECT c.*,
+               o.order_no AS order_no,
+               o.pay_amount AS pay_amount,
+               u.nickname AS student_name,
+               s.name AS stall_name
+        FROM complaint c
+        JOIN order_info o ON o.id = c.order_id
+        JOIN `user` u ON u.id = c.student_user_id
+        JOIN stall s ON s.id = c.stall_id
+        <where>
+            <if test="status != null">c.status = #{status}</if>
+        </where>
+        ORDER BY c.status ASC, c.create_time DESC
+    </select>
+
+    <update id="updateReply">
+        UPDATE complaint SET reply = #{reply}, reply_time = NOW(), status = 1
+        WHERE id = #{id} AND status = 0
+    </update>
+
+    <update id="updateVerdict">
+        UPDATE complaint
+        SET verdict = #{verdict}, result = #{result}, refund_amount = #{refundAmount},
+            admin_id = #{adminId}, status = 2
+        WHERE id = #{id} AND status IN (0, 1)
+    </update>
+
+</mapper>

@@ -41,6 +41,8 @@ public class OrderTxService {
     private final CouponMapper couponMapper;
     private final DishMapper dishMapper;
     private final CartItemMapper cartItemMapper;
+    private final com.canteen.mapper.StallMapper stallMapper;
+    private final com.canteen.common.MessageSender messageSender;
 
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final DateTimeFormatter NO_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
@@ -48,7 +50,8 @@ public class OrderTxService {
     public OrderTxService(OrderInfoMapper orderInfoMapper, OrderItemMapper orderItemMapper,
                           UserMapper userMapper, WalletRecordMapper walletRecordMapper,
                           UserCouponMapper userCouponMapper, CouponMapper couponMapper,
-                          DishMapper dishMapper, CartItemMapper cartItemMapper) {
+                          DishMapper dishMapper, CartItemMapper cartItemMapper,
+                          com.canteen.mapper.StallMapper stallMapper, com.canteen.common.MessageSender messageSender) {
         this.orderInfoMapper = orderInfoMapper;
         this.orderItemMapper = orderItemMapper;
         this.userMapper = userMapper;
@@ -57,6 +60,8 @@ public class OrderTxService {
         this.couponMapper = couponMapper;
         this.dishMapper = dishMapper;
         this.cartItemMapper = cartItemMapper;
+        this.stallMapper = stallMapper;
+        this.messageSender = messageSender;
     }
 
     /**
@@ -137,6 +142,16 @@ public class OrderTxService {
         }
         cartItemMapper.deleteByUserAndDishIds(userId,
                 dishList.stream().map(com.canteen.vo.DishVO::getId).collect(Collectors.toList()));
+
+        // 7. 站内消息：通知商家端"接单了"
+        com.canteen.entity.Stall orderStall = stallMapper.selectById(stallId);
+        if (orderStall != null && orderStall.getMerchantUserId() != null) {
+            String brief = "来自同学 #" + userId + "，";
+            messageSender.send(orderStall.getMerchantUserId(),
+                    "收到新订单 🍜",
+                    brief + "实付 ¥" + pay + (delivery ? "（配送单，等待管理员指派骑手）" : "（取餐码 " + order.getPickupCode() + "），请及时备餐"),
+                    com.canteen.common.MessageSender.TYPE_ORDER);
+        }
         return order;
     }
 
@@ -150,8 +165,7 @@ public class OrderTxService {
             throw new com.canteen.common.BizException("订单状态已变化，取消失败");
         }
         userMapper.addBalance(order.getUserId(), order.getPayAmount());
-        WalletRecord refund = new WalletRecord();
-        refund.setUserId(order.getUserId());
+        WalletRecord refund = new WalletRecord();        refund.setUserId(order.getUserId());
         refund.setType(3);
         refund.setAmount(order.getPayAmount());
         refund.setRefOrderNo(order.getOrderNo());
@@ -164,6 +178,16 @@ public class OrderTxService {
             if (ucId != null) {
                 userCouponMapper.restore(ucId, order.getUserId());
             }
+        }
+        // 站内消息：学生退款成功 + 商家订单被取消
+        messageSender.send(order.getUserId(), "退款成功 💰",
+                "订单 " + order.getOrderNo() + " 已取消，退款 ¥" + order.getPayAmount() + " 已原路退回校园卡",
+                com.canteen.common.MessageSender.TYPE_ORDER);
+        com.canteen.entity.Stall cancelStall = stallMapper.selectById(order.getStallId());
+        if (cancelStall != null && cancelStall.getMerchantUserId() != null) {
+            messageSender.send(cancelStall.getMerchantUserId(), "订单已取消",
+                    "同学取消了订单 " + order.getOrderNo() + "（¥" + order.getPayAmount() + "），无需备餐",
+                    com.canteen.common.MessageSender.TYPE_ORDER);
         }
 
         // 配送单取消：上未指派则复位（已指派/配送中不允许学生取消，Service 外层已拦截）
