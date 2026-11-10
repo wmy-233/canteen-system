@@ -48,8 +48,9 @@ public class SecurityConfig {
             .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             .and()
             .authorizeRequests()
-                // 登录注册与健康检查放行
-                .antMatchers("/api/user/login", "/api/user/register", "/api/health").permitAll()
+                // 登录注册与健康检查放行（含商家入驻注册）；食堂列表是入驻表单的公开只读基础数据
+                .antMatchers("/api/user/login", "/api/user/register", "/api/user/register-merchant",
+                        "/api/canteen/list", "/api/health").permitAll()
                 // knife4j / OpenAPI 接口文档放行
                 .antMatchers("/doc.html", "/webjars/**", "/v3/api-docs/**",
                         "/swagger-ui/**", "/swagger-resources/**", "/favicon.ico").permitAll()

@@ -44,9 +44,10 @@
       </el-form>
 
       <div class="divider"><span>还没有账号？</span></div>
-      <el-button class="register-btn" text type="primary" @click="showRegister = true">
-        注册一个新账号，开启校园食光 ✨
+      <el-button v-if="userStore.portal !== 'ADMIN'" class="register-btn" text type="primary" @click="openRegister">
+        {{ userStore.portal === 'STUDENT' ? '注册一个新账号，开启校园食光 ✨' : '商家入驻申请（提交后等管理员审核） 🏪' }}
       </el-button>
+      <div v-else class="admin-note">🔒 管理员账号不开放注册，由超级管理员在「用户管理」中授权</div>
 
       <!-- 演示账号一键填入 -->
       <div class="demo-row">
@@ -57,25 +58,47 @@
       </div>
     </div>
 
-    <!-- 注册弹窗 -->
-    <el-dialog v-model="showRegister" title="🍜 加入智慧校园食堂" width="420px" class="reg-dialog">
-      <p class="reg-tip">注册后默认为学生账号，即刻探索全校档口美食</p>
-      <el-form ref="regFormRef" :model="regForm" :rules="rules" label-position="top">
-        <el-form-item label="账号" prop="username">
-          <el-input v-model="regForm.username" placeholder="4-20 位字母数字" clearable />
-        </el-form-item>
-        <el-form-item label="昵称" prop="nickname">
-          <el-input v-model="regForm.nickname" placeholder="同学都怎么称呼你？" clearable />
-        </el-form-item>
-        <el-form-item label="密码" prop="password">
-          <el-input v-model="regForm.password" type="password" placeholder="6-20 位" show-password />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button round @click="showRegister = false">取消</el-button>
-        <el-button type="primary" round :loading="regLoading" @click="handleRegister">注册并进入</el-button>
-      </template>
-    </el-dialog>
+    <!-- 注册弹窗：学生注册 / 商家入驻 -->
+      <el-dialog v-model="showRegister" :title="userStore.portal === 'STUDENT' ? '🍜 加入校园食堂' : '🏪 商家入驻申请'" width="440px" class="reg-dialog">
+        <p v-if="userStore.portal === 'STUDENT'" class="reg-tip">注册后默认为<b>学生账号</b>，即刻探索全校档口美食</p>
+        <div v-else class="reg-tip merchant">
+          入驻流程：<b>① 提交申请</b> → ② 管理员审核档口 → ③ 审核通过即可上架菜品、开门营业
+        </div>
+
+        <el-form ref="regFormRef" :model="regForm" :rules="regRules" label-position="top" @keyup.enter="handleRegister">
+          <el-form-item label="账号" prop="username">
+            <el-input v-model="regForm.username" placeholder="3-20 位字母数字下划线" clearable />
+          </el-form-item>
+          <el-form-item label="昵称" prop="nickname">
+            <el-input v-model="regForm.nickname" :placeholder="userStore.portal === 'STUDENT' ? '同学都怎么称呼你？' : '店铺联系人称呼'" clearable />
+          </el-form-item>
+          <el-form-item label="密码" prop="password">
+            <el-input v-model="regForm.password" type="password" placeholder="6-20 位" show-password />
+          </el-form-item>
+
+          <!-- 商家专属：档口申请信息 -->
+          <template v-if="userStore.portal === 'MERCHANT'">
+            <el-divider content-position="left">档口申请信息</el-divider>
+            <el-form-item label="档口名称" prop="stallName">
+              <el-input v-model="regForm.stallName" placeholder="如：香满楼卤味档（2-30字）" maxlength="30" show-word-limit />
+            </el-form-item>
+            <el-form-item label="所属食堂" prop="canteenId">
+              <el-select v-model="regForm.canteenId" placeholder="选择入驻的食堂" style="width:100%">
+                <el-option v-for="c in canteenOptions" :key="c.id" :label="c.name" :value="c.id" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="联系电话" prop="phone">
+              <el-input v-model="regForm.phone" placeholder="11 位手机号（审核沟通用）" maxlength="11" />
+            </el-form-item>
+          </template>
+        </el-form>
+        <template #footer>
+          <el-button round @click="showRegister = false">取消</el-button>
+          <el-button round type="primary" :loading="regLoading" @click="handleRegister">
+            {{ userStore.portal === 'STUDENT' ? '注册并进入' : '提交入驻申请' }}
+          </el-button>
+        </template>
+      </el-dialog>
   </div>
 </template>
 
@@ -83,7 +106,8 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { login, register } from '../api/user'
+import { login, register, registerMerchant } from '../api/user'
+import { canteenList } from '../api/basic'
 import { useUserStore } from '../stores/user'
 import { ROLE_HOME } from '../router'
 
@@ -114,12 +138,52 @@ const regLoading = ref(false)
 const showRegister = ref(false)
 
 const form = reactive({ username: '', password: '' })
-const regForm = reactive({ username: '', nickname: '', password: '' })
+const regForm = reactive({ username: '', nickname: '', password: '', stallName: '', canteenId: undefined, phone: '' })
 
 const rules = {
   username: [{ required: true, message: '请输入账号', trigger: 'blur' }],
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
   nickname: [{ required: true, message: '请输入昵称', trigger: 'blur' }]
+}
+
+// 注册表单规则：与后端 @Validated 注解严格一致，前端先拦一道，后端兜底
+const ACCOUNT_RE = /^[a-zA-Z0-9_]{3,20}$/
+const PHONE_RE = /^1[3-9]\d{9}$/
+const regRules = computed(() => ({
+  username: [
+    { required: true, message: '请输入账号', trigger: 'blur' },
+    { pattern: ACCOUNT_RE, message: '账号为3-20位字母数字下划线', trigger: 'blur' }
+  ],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 6, max: 20, message: '密码长度6-20位', trigger: 'blur' }
+  ],
+  nickname: [{ required: true, message: '请输入昵称', trigger: 'blur' }],
+  // 商家入驻专属
+  stallName: [
+    { required: true, message: '请填写档口名称', trigger: 'blur' },
+    { min: 2, max: 30, message: '档口名2-30字', trigger: 'blur' }
+  ],
+  canteenId: [{ required: true, message: '请选择所属食堂', trigger: 'change' }],
+  phone: [
+    { pattern: PHONE_RE, message: '手机号格式不正确', trigger: 'blur' }
+  ]
+}))
+
+// 商家入驻表单的食堂选项（公开接口 /api/basic/canteen/list 登录即可，未登录注册前经 request 也可拿——
+// 若 401 则兜底不展示列表并由用户联系管理员；实际上 canteen list 未挂权限，正常可取）
+const canteenOptions = ref([])
+async function loadCanteens() {
+  try {
+    const res = await canteenList()
+    canteenOptions.value = res.data || []
+  } catch { /* 注册前无 token，可选接口失败时静默，表单仍可提交走后端校验 */ }
+}
+
+function openRegister() {
+  Object.assign(regForm, { username: '', nickname: '', password: '', stallName: '', canteenId: undefined, phone: '' })
+  if (userStore.portal === 'MERCHANT' && canteenOptions.value.length === 0) loadCanteens()
+  showRegister.value = true
 }
 
 const demoAccounts = [
@@ -160,10 +224,24 @@ async function handleRegister() {
   await regFormRef.value.validate().catch(() => Promise.reject())
   regLoading.value = true
   try {
-    const res = await register({ ...regForm })
+    const isMerchant = userStore.portal === 'MERCHANT'
+    const res = isMerchant
+      ? await registerMerchant({
+          username: regForm.username,
+          password: regForm.password,
+          nickname: regForm.nickname || undefined,
+          phone: regForm.phone || undefined,
+          stallName: regForm.stallName,
+          canteenId: regForm.canteenId
+        })
+      : await register({ ...regForm })
     userStore.setLogin({ token: res.data.token, userInfo: res.data })
-    ElMessage.success('注册成功')
     showRegister.value = false
+    if (isMerchant) {
+      ElMessage.success('入驻申请已提交！档口待管理员审核，通过后即可营业')
+    } else {
+      ElMessage.success('注册成功')
+    }
     goHome(res.data)
   } finally {
     regLoading.value = false
@@ -400,5 +478,18 @@ async function handleRegister() {
   color: #7d8168;
   background: rgba(147, 151, 122, 0.14);
   border-radius: 8px;
+}
+.reg-tip.merchant {
+  line-height: 1.7;
+  background: rgba(169, 132, 103, 0.12);
+  color: #8a6b52;
+}
+.admin-note {
+  padding: 10px 12px;
+  font-size: 12.5px;
+  color: #6d8093;
+  background: rgba(126, 148, 168, 0.12);
+  border-radius: 10px;
+  text-align: center;
 }
 </style>

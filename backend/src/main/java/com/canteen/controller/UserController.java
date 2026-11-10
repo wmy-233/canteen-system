@@ -33,6 +33,13 @@ public class UserController {
         return Result.success(userService.register(request));
     }
 
+    @Operation(summary = "商家入驻注册（注册账号 + 待审核档口申请，成功即自动登录）")
+    @OpLog(module = "用户", action = "商家入驻")
+    @PostMapping("/register-merchant")
+    public Result<LoginResponse> registerMerchant(@Validated @RequestBody com.canteen.dto.RegisterMerchantRequest request) {
+        return Result.success(userService.registerMerchant(request));
+    }
+
     @Operation(summary = "登录（返回 JWT token 与角色）")
     @OpLog(module = "用户", action = "登录")
     @PostMapping("/login")

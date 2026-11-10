@@ -28,4 +28,7 @@ public interface StallMapper {
 
     /** 管理员审核改状态 */
     int updateStatus(@Param("id") Long id, @Param("status") Integer status);
+
+    /** 商家注册入驻时创建待审核档口（回填自增主键） */
+    int insert(Stall stall);
 }

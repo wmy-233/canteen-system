@@ -51,4 +51,9 @@
         UPDATE stall SET status = #{status} WHERE id = #{id}
     </update>
 
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO stall (canteen_id, merchant_user_id, name, status)
+        VALUES (#{canteenId}, #{merchantUserId}, #{name}, #{status})
+    </insert>
+
 </mapper>
