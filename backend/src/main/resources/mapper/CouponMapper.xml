@@ -13,7 +13,7 @@
     <select id="selectAll" resultType="com.canteen.entity.Coupon">
         SELECT id, name, threshold, amount, stock, expire_time, status
         FROM coupon
-        ORDER BY status DESC, create_time DESC
+        ORDER BY status DESC, expire_time DESC
     </select>
 
     <select id="selectById" resultType="com.canteen.entity.Coupon">

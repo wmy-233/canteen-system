@@ -1,16 +1,31 @@
 ﻿<template>
-  <div class="login-page">
-    <!-- 莫兰迪极光动态背景：三团缓慢漂移的彩色光晕 + 飘浮气泡 -->
+  <div class="login-page" :class="'p-' + userStore.portal">
+    <!-- 动态极光背景：随门户主色联动 -->
     <div class="aurora">
       <span class="blob blob-1"></span>
       <span class="blob blob-2"></span>
       <span class="blob blob-3"></span>
-      <span v-for="n in 14" :key="n" class="bubble" :style="bubbleStyle(n)">🍚</span>
+      <span v-for="n in 12" :key="n" class="bubble">{{ portalEmoji }}</span>
     </div>
 
-    <!-- 登录卡片（玻璃拟态） -->
+    <!-- 三端门户选择 -->
+    <div class="portal-bar">
+      <button
+        v-for="p in portals" :key="p.key" type="button"
+        class="portal-tab" :class="[{ active: userStore.portal === p.key }, p.key]"
+        @click="pick(p.key)"
+      >
+        <span class="pt-emoji">{{ p.emoji }}</span>
+        <span class="pt-text">
+          <b>{{ p.label }}</b>
+          <i>{{ p.desc }}</i>
+        </span>
+      </button>
+    </div>
+
+    <!-- 登录卡片（玻璃拟态，主题色随门户变化） -->
     <div class="login-card">
-      <div class="badge">🍽️ 智慧校园 · 一卡通</div>
+      <div class="badge">{{ currentPortal?.emoji }} {{ currentPortal?.label }} · 智慧校园食堂</div>
       <h1 class="title">智慧校园食堂点餐系统</h1>
       <p class="subtitle">Serving warmth, one bowl at a time</p>
 
@@ -23,7 +38,7 @@
         </el-form-item>
         <el-form-item>
           <el-button class="submit-btn" type="primary" size="large" :loading="loading" round @click="handleLogin">
-            进入食堂 →
+            {{ currentPortal?.label }}登 录 →
           </el-button>
         </el-form-item>
       </el-form>
@@ -32,6 +47,14 @@
       <el-button class="register-btn" text type="primary" @click="showRegister = true">
         注册一个新账号，开启校园食光 ✨
       </el-button>
+
+      <!-- 演示账号一键填入 -->
+      <div class="demo-row">
+        <span class="demo-tip">演示账号：</span>
+        <button v-for="d in demoAccounts" :key="d.u" type="button" class="demo-chip" @click="fillDemo(d)">
+          {{ d.emoji }} {{ d.u }}
+        </button>
+      </div>
     </div>
 
     <!-- 注册弹窗 -->
@@ -57,16 +80,32 @@
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { login, register } from '../api/user'
 import { useUserStore } from '../stores/user'
 import { ROLE_HOME } from '../router'
 
+const PORTALS = {
+  STUDENT: { key: 'STUDENT', label: '学生端', emoji: '🍱', desc: '点餐 · 卡包 · 校园券', accent: '#93977a' },
+  MERCHANT: { key: 'MERCHANT', label: '商家端', emoji: '🏪', desc: '菜品 · 出餐 · 生意', accent: '#a98467' },
+  ADMIN: { key: 'ADMIN', label: '管理端', emoji: '📊', desc: '审核 · 调度 · 全局', accent: '#7e94a8' }
+}
+
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+
+const portals = Object.values(PORTALS)
+const currentPortal = computed(() => PORTALS[userStore.portal] || PORTALS.STUDENT)
+const portalEmoji = computed(() => ({ STUDENT: '🍚', MERCHANT: '🍜', ADMIN: '📚' }[userStore.portal] || '🍚'))
+
+function pick(key) { userStore.setPortal(key) }
+
+onMounted(() => {
+  if (!userStore.portal) userStore.setPortal('STUDENT')
+})
 
 const formRef = ref()
 const regFormRef = ref()
@@ -83,19 +122,23 @@ const rules = {
   nickname: [{ required: true, message: '请输入昵称', trigger: 'blur' }]
 }
 
-// 让每个气泡随机分布、随机速度，避免同屏移动整齐划一
-function bubbleStyle(n) {
-  const seed = (n * 137) % 100
-  return {
-    left: `${(seed * 3.7 + n * 4) % 96}%`,
-    animationDuration: `${16 + (seed % 10) * 2.2}s`,
-    animationDelay: `${-(seed % 9) * 1.8}s`,
-    fontSize: `${14 + (seed % 4) * 5}px`
-  }
+const demoAccounts = [
+  { u: 'student', emoji: '🍱', portal: 'STUDENT' },
+  { u: 'merchant', emoji: '🏪', portal: 'MERCHANT' },
+  { u: 'admin', emoji: '📊', portal: 'ADMIN' }
+]
+
+function fillDemo(d) {
+  userStore.setPortal(d.portal)
+  form.username = d.u
+  form.password = '123456'
 }
 
-// 登录成功后按角色跳转：学生→/student 商家→/merchant 管理员→/admin
+// 登录成功后：若所选门户与实际角色一致直接进；不一致则提示实际身份跳对应端
 function goHome(userInfo) {
+  if (userInfo.role !== userStore.portal && PORTALS[userInfo.role]) {
+    ElMessage.info(`你的身份是${PORTALS[userInfo.role].label}，已为你切换`)
+  }
   const target = route.query.redirect || ROLE_HOME[userInfo.role] || '/'
   router.replace(target)
 }
@@ -129,18 +172,28 @@ async function handleRegister() {
 </script>
 
 <style scoped>
-/* ---- 鼠尾草绿莫兰迪色板：主色 #93977A / 米白底 #F6F4EC ---- */
+/* 门户主题色：CSS 变量驱动整卡换肤 */
+.login-page {
+  --ac: #93977a;
+  --ac-soft: #a4a88b;
+  --ac-glow: rgba(147, 151, 122, 0.55);
+}
+.login-page.p-MERCHANT { --ac: #a98467; --ac-soft: #bb9984; --ac-glow: rgba(169, 132, 103, 0.55); }
+.login-page.p-ADMIN   { --ac: #7e94a8; --ac-soft: #97aabb; --ac-glow: rgba(126, 148, 168, 0.55); }
+
 .login-page {
   position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 22px;
   height: 100vh;
   overflow: hidden;
   background: linear-gradient(135deg, #f6f4ec 0%, #eceadf 50%, #e7e4d6 100%);
 }
 
-/* ---------- 极光光晕 ---------- */
+/* ---------- 极光（颜色绑定 --ac 系） ---------- */
 .aurora {
   position: absolute;
   inset: 0;
@@ -150,13 +203,14 @@ async function handleRegister() {
   position: absolute;
   border-radius: 50%;
   filter: blur(90px);
-  opacity: 0.55;
+  opacity: 0.5;
   will-change: transform;
+  transition: background 0.5s ease;
 }
 .blob-1 {
   width: 46vw; height: 46vw;
   left: -12vw; top: -10vw;
-  background: radial-gradient(circle, #a9ae8e 0%, transparent 70%);
+  background: radial-gradient(circle, var(--ac-glow) 0%, transparent 70%);
   animation: drift1 22s ease-in-out infinite alternate;
 }
 .blob-2 {
@@ -168,38 +222,81 @@ async function handleRegister() {
 .blob-3 {
   width: 30vw; height: 30vw;
   right: 18vw; top: -8vw;
-  background: radial-gradient(circle, #bcb9a1 0%, transparent 70%);
+  background: radial-gradient(circle, var(--ac-glow) 0%, transparent 70%);
   animation: drift3 19s ease-in-out infinite alternate;
 }
 @keyframes drift1 { to { transform: translate(9vw, 12vh) scale(1.15); } }
 @keyframes drift2 { to { transform: translate(-11vw, -9vh) scale(1.1); } }
 @keyframes drift3 { to { transform: translate(-6vw, 10vh) scale(0.9); } }
 
-/* 飘浮的美食气泡 */
 .bubble {
   position: absolute;
   top: 102%;
-  opacity: 0.5;
+  font-size: 18px;
+  opacity: 0;
   animation: rise linear infinite;
 }
 @keyframes rise {
   0%   { transform: translateY(0) rotate(0deg); opacity: 0; }
-  8%   { opacity: 0.5; }
-  92%  { opacity: 0.35; }
-  100% { transform: translateY(-115vh) rotate(22deg); opacity: 0; }
+  10%  { opacity: 0.45; }
+  92%  { opacity: 0.3; }
+  100% { transform: translateY(-112vh) rotate(22deg); opacity: 0; }
 }
+/* 气泡随机分布与速度 */
+.bubble:nth-child(3n+1) { left: 8%;  animation-duration: 17s; animation-delay: -2s; font-size: 22px; }
+.bubble:nth-child(3n+2) { left: 34%; animation-duration: 21s; animation-delay: -9s; }
+.bubble:nth-child(3n)   { left: 58%; animation-duration: 15s; animation-delay: -5s; font-size: 15px; }
+.bubble:nth-child(4n)   { left: 76%; animation-duration: 19s; animation-delay: -12s; }
+.bubble:nth-child(5n)   { left: 90%; animation-duration: 18s; animation-delay: -1s; font-size: 24px; }
+.bubble:nth-child(6n)   { left: 20%; animation-duration: 16s; animation-delay: -7s; }
+.bubble:nth-child(7n)   { left: 45%; animation-duration: 22s; animation-delay: -15s; }
+.bubble:nth-child(8n)   { left: 65%; animation-duration: 14s; animation-delay: -4s; font-size: 20px; }
+.bubble:nth-child(9n)   { left: 85%; animation-duration: 20s; animation-delay: -11s; }
+.bubble:nth-child(10n)  { left: 15%; animation-duration: 18s; animation-delay: -6s; font-size: 16px; }
+.bubble:nth-child(11n)  { left: 50%; animation-duration: 23s; animation-delay: -18s; font-size: 21px; }
+.bubble:nth-child(12n)  { left: 70%; animation-duration: 15s; animation-delay: -13s; }
 
-/* ---------- 登录卡片（玻璃拟态） ---------- */
+/* ---------- 三端门户选择条 ---------- */
+.portal-bar {
+  display: flex;
+  gap: 14px;
+  z-index: 2;
+  animation: portal-in 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes portal-in { from { opacity: 0; transform: translateY(-14px); } }
+.portal-tab {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px 10px 14px;
+  border-radius: 14px;
+  border: 1.5px solid #e0ddd0;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  text-align: left;
+}
+.portal-tab:hover { transform: translateY(-3px); box-shadow: 0 8px 18px rgba(120, 122, 96, 0.16); }
+.portal-tab .pt-emoji { font-size: 26px; }
+.portal-tab .pt-text { display: flex; flex-direction: column; }
+.portal-tab .pt-text b { font-size: 14px; color: #5e5f4e; }
+.portal-tab .pt-text i { font-style: normal; font-size: 11px; color: #9b9d84; margin-top: 2px; }
+
+/* 每个门户选中时使用各自专属色打勾描边 */
+.portal-tab.active.STUDENT { border-color: #93977a; background: rgba(147, 151, 122, 0.13); box-shadow: 0 6px 16px rgba(147, 151, 122, 0.3); }
+.portal-tab.active.MERCHANT { border-color: #a98467; background: rgba(169, 132, 103, 0.12); box-shadow: 0 6px 16px rgba(169, 132, 103, 0.3); }
+.portal-tab.active.ADMIN { border-color: #7e94a8; background: rgba(126, 148, 168, 0.13); box-shadow: 0 6px 16px rgba(126, 148, 168, 0.3); }
+
+/* ---------- 登录卡片 ---------- */
 .login-card {
   position: relative;
   width: 396px;
-  padding: 42px 40px 30px;
+  padding: 36px 40px 24px;
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.62);
   backdrop-filter: blur(18px);
-  box-shadow:
-    0 20px 60px rgba(120, 122, 96, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  box-shadow: 0 20px 60px rgba(120, 122, 96, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.8);
   animation: card-in 0.7s cubic-bezier(0.22, 1, 0.36, 1);
   z-index: 1;
 }
@@ -208,22 +305,22 @@ async function handleRegister() {
 }
 .badge {
   display: inline-block;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
   padding: 4px 12px;
   font-size: 12px;
   letter-spacing: 1px;
-  color: #77786a;
-  background: rgba(147, 151, 122, 0.18);
-  border: 1px solid rgba(147, 151, 122, 0.35);
+  color: var(--ac);
+  background: color-mix(in srgb, var(--ac) 14%, white);
+  border: 1px solid color-mix(in srgb, var(--ac) 35%, transparent);
   border-radius: 999px;
+  transition: color 0.4s;
 }
 .title {
   margin: 0 0 6px;
-  font-size: 24px;
+  font-size: 23px;
   font-weight: 700;
   letter-spacing: 2px;
-  /* 流动渐变色标题 */
-  background: linear-gradient(90deg, #83896a 0%, #93977a 30%, #b3b79a 60%, #c2c0a8 100%);
+  background: linear-gradient(90deg, #83896a 0%, var(--ac) 35%, var(--ac-soft) 65%, #b3b79a 100%);
   background-size: 220% 100%;
   -webkit-background-clip: text;
   background-clip: text;
@@ -232,52 +329,59 @@ async function handleRegister() {
 }
 @keyframes shimmer { to { background-position: 220% 0; } }
 .subtitle {
-  margin: 0 0 26px;
+  margin: 0 0 22px;
   font-size: 12.5px;
-  color: #9b9d84;
+  color: #a29ea8;
   letter-spacing: 1px;
 }
 
 .submit-btn {
   width: 100%;
   margin-top: 6px;
-  background: #93977a;
-  border-color: #93977a;
-  box-shadow: 0 6px 16px rgba(147, 151, 122, 0.4);
+  background: var(--ac);
+  border-color: var(--ac);
+  box-shadow: 0 6px 16px var(--ac-glow);
+  transition: all 0.4s;
 }
-.submit-btn:hover,
-.submit-btn:focus {
-  background: #83896a;
-  border-color: #83896a;
+.submit-btn:hover, .submit-btn:focus {
+  background: var(--ac-soft);
+  border-color: var(--ac-soft);
 }
-.register-btn {
-  width: 100%;
-  color: #8a8f70 !important;
-}
+.register-btn { width: 100%; color: var(--ac) !important; }
 
 .divider {
   display: flex;
   align-items: center;
-  margin: 18px 0 4px;
+  margin: 16px 0 4px;
   color: #b3b0b8;
   font-size: 12px;
 }
-.divider::before,
-.divider::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: #dedccc;
-}
-.divider span {
-  padding: 0 10px;
-}
+.divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: #dedccc; }
+.divider span { padding: 0 10px; }
 
-/* 登录卡片内部标签贴纸视觉 */
-.login-card :deep(.el-form-item__label) {
-  color: #8a8b7a;
-  font-size: 13px;
+/* 演示账号 chips */
+.demo-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  flex-wrap: wrap;
 }
+.demo-tip { font-size: 11.5px; color: #9b9d84; }
+.demo-chip {
+  border: 1px dashed #c9c8b2;
+  background: #fbfaf2;
+  color: #7d8168;
+  font-size: 11.5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.demo-chip:hover { background: var(--ac); color: #fff; border-style: solid; }
+
+/* 卡片内 Element 输入框随主题 */
+.login-card :deep(.el-form-item__label) { color: #8a8b7a; font-size: 13px; }
 .login-card :deep(.el-input__wrapper) {
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.75);
@@ -285,10 +389,10 @@ async function handleRegister() {
   transition: box-shadow 0.25s ease;
 }
 .login-card :deep(.el-input__wrapper.is-focus) {
-  box-shadow: 0 0 0 1.5px #93977a inset;
+  box-shadow: 0 0 0 1.5px var(--ac) inset;
 }
 
-/* 注册弹窗微调 */
+/* 注册弹窗 */
 .reg-tip {
   margin: 0 0 14px;
   padding: 8px 12px;

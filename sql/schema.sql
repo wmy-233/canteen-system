@@ -141,7 +141,8 @@ CREATE TABLE IF NOT EXISTS `coupon` (
     `amount`      DECIMAL(8,2) NOT NULL COMMENT '减免金额',
     `stock`       INT NOT NULL DEFAULT 0 COMMENT '发放总量',
     `expire_time` DATETIME NOT NULL COMMENT '过期时间',
-    `status`      TINYINT NOT NULL DEFAULT 1 COMMENT '0停发 1发放中'
+    `status`      TINYINT NOT NULL DEFAULT 1 COMMENT '0停发 1发放中',
+    `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB COMMENT='优惠券';
 
 -- 用户领券

@@ -20,10 +20,11 @@ const routes = [
     meta: { roles: ['STUDENT'] },
     children: [
       { path: '', component: () => import('../views/student/Dashboard.vue') },
-      { path: 'menu', ...placeholder('菜品浏览') },
-      { path: 'orders', ...placeholder('我的订单') },
-      { path: 'wallet', ...placeholder('我的钱包') },
-      { path: 'coupons', ...placeholder('优惠券') }
+      { path: 'menu', component: () => import('../views/student/Menu.vue') },
+      { path: 'orders', component: () => import('../views/student/Orders.vue') },
+      { path: 'wallet', component: () => import('../views/student/Wallet.vue') },
+      { path: 'coupons', component: () => import('../views/student/Coupons.vue') },
+      { path: 'dining', ...placeholder('食堂堂食') }
     ]
   },
 
@@ -34,9 +35,9 @@ const routes = [
     meta: { roles: ['MERCHANT'] },
     children: [
       { path: '', component: () => import('../views/merchant/Dashboard.vue') },
-      { path: 'dishes', ...placeholder('菜品管理') },
-      { path: 'orders', ...placeholder('出餐看板') },
-      { path: 'stats', ...placeholder('销量统计') }
+      { path: 'dishes', component: () => import('../views/merchant/Dishes.vue') },
+      { path: 'orders', component: () => import('../views/merchant/OrderBoard.vue') },
+      { path: 'stats', component: () => import('../views/merchant/Stats.vue') }
     ]
   },
 
@@ -47,9 +48,11 @@ const routes = [
     meta: { roles: ['ADMIN'] },
     children: [
       { path: '', component: () => import('../views/admin/Dashboard.vue') },
-      { path: 'users', ...placeholder('用户管理') },
-      { path: 'merchants', ...placeholder('档口审核') },
-      { path: 'stats', ...placeholder('全局统计') }
+      { path: 'users', component: () => import('../views/admin/Users.vue') },
+      { path: 'merchants', component: () => import('../views/admin/StallAudit.vue') },
+      { path: 'riders', component: () => import('../views/admin/Riders.vue') },
+      { path: 'coupons', component: () => import('../views/admin/Coupons.vue') },
+      { path: 'stats', component: () => import('../views/admin/Stats.vue') }
     ]
   },
 
@@ -70,10 +73,6 @@ const router = createRouter({
   routes
 })
 
-// 路由守卫：
-// 1. 未登录访问受保护页面 → /login
-// 2. 已登录访问 /login → 按角色跳回自己的布局
-// 3. 角色越权访问（如学生访问 /admin）→ 踢回自己的首页
 // 判断当前登录状态是否有效：有 token 且角色是三种合法角色之一
 // （防止 localStorage 里残留旧 token 导致空白页）
 function hasValidLogin(userStore) {

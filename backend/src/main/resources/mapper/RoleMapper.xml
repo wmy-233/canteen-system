@@ -24,7 +24,7 @@
 
     <!-- 用户管理列表的角色映射：user_id -> role_code（一人多角色取首个） -->
     <select id="selectRoleCodesByUserIds" resultType="map">
-        SELECT ur.user_id AS user_id, r.role_code AS role_code
+        SELECT ur.user_id AS userId, r.role_code AS roleCode
         FROM user_role ur
         JOIN `role` r ON r.id = ur.role_id
         WHERE ur.user_id IN
