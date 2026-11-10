@@ -86,20 +86,28 @@
         </div>
       </template>
       <div v-loading="cartLoading" class="cart-list">
-        <div v-for="item in cart" :key="item.id" class="cart-item">
-          <div class="ci-info">
-            <div class="ci-name">{{ item.dishName }}</div>
-            <div class="ci-meta">{{ item.stallName }} · ¥{{ fmt(item.price) }}</div>
+        <template v-for="(group, gi) in cartGroups" :key="gi">
+          <div class="cart-group-head">
+            🏪 {{ group.stallName }}
+            <span class="cg-sub">小计 ¥{{ fmt(group.subtotal) }}</span>
           </div>
-          <div class="ci-ops">
-            <el-input-number
-              :model-value="item.quantity"
-              :min="1" :max="99" size="small"
-              @change="(v) => changeQty(item, v)"
-            />
-            <el-button link type="danger" size="small" @click="removeItem(item)">删除</el-button>
+          <div v-for="item in group.items" :key="item.id" class="cart-item">
+            <div class="ci-info">
+              <div class="ci-name">{{ item.dishName }}</div>
+              <div class="ci-meta">¥{{ fmt(item.price) }}</div>
+            </div>
+            <div class="ci-ops">
+              <el-input-number
+                :model-value="item.quantity"
+                :min="1" :max="99" size="small"
+                @change="(v) => changeQty(item, v)"
+              />
+              <el-button link type="danger" size="small" @click="removeItem(item)">删除</el-button>
+            </div>
           </div>
-        </div>
+        </template>
+        <el-alert v-if="cartGroups.length > 1" type="info" :closable="false"
+          :title="`跨档口下单会自动拆成 ${cartGroups.length} 笔订单分开结算`" />
         <el-empty v-if="!cartLoading && cart.length === 0" description="购物车空空的，快去加菜吧～" />
       </div>
       <template #footer>
@@ -121,17 +129,22 @@
         </div>
         <div class="ck-row">
           <span class="ck-label">优惠券</span>
-          <el-select v-model="checkout.couponId" placeholder="自动选择最优券" clearable style="flex:1">
+          <el-select v-model="checkout.couponId" placeholder="自动选择最优券" clearable style="flex:1" :disabled="cartGroups.length > 1">
             <el-option
               v-for="c in usableCoupons" :key="c.id"
               :label="`${c.name}（满${fmt(c.threshold)}减${fmt(c.amount)}）`" :value="c.id"
             />
           </el-select>
         </div>
-        <el-alert v-if="usableCoupons.length === 0" type="info" :closable="false"
+        <el-alert v-if="cartGroups.length > 1" type="warning" :closable="false" style="margin-bottom:8px"
+          :title="`购物车含 ${cartGroups.length} 个档口：将按档口拆成 ${cartGroups.length} 笔订单分别扣款（${cartGroupNames}），优惠券需单档口订单才能使用`" />
+        <el-alert v-else-if="usableCoupons.length === 0" type="info" :closable="false"
           title="暂无可用优惠券，可去「优惠券」页面领取" style="margin-bottom:8px" />
+        <div v-for="g in cartGroups" :key="g.stallName" class="ck-group">
+          <span>{{ g.stallName }}</span><b>¥{{ fmt(g.subtotal) }}</b>
+        </div>
         <el-descriptions :column="1" border size="small">
-          <el-descriptions-item label="商品合计">¥{{ fmt(cartTotal) }}</el-descriptions-item>
+          <el-descriptions-item label="商品合计">{{ cartGroups.length }} 笔订单 · ¥{{ fmt(cartTotal) }}</el-descriptions-item>
           <el-descriptions-item label="优惠减免">- ¥{{ fmt(discount) }}</el-descriptions-item>
           <el-descriptions-item label="实付">
             <span class="pay-amount">¥{{ fmt(cartTotal - discount) }}</span>
@@ -147,17 +160,17 @@
     </el-dialog>
 
     <!-- 下单成功 -->
-    <el-dialog v-model="doneVisible" title="🎉 下单成功" width="380px">
-      <div v-if="orderResult" class="done-box">
-        <div class="done-item">订单号 <b>{{ orderResult.orderNo }}</b></div>
-        <div class="pickup-code">{{ orderResult.deliveryType === 0 ? orderResult.pickupCode : '🛵' }}</div>
-        <div class="done-sub">{{ orderResult.deliveryType === 0 ? '出餐后凭取餐码取餐' : '商家出餐后将由骑手送至目的地' }}</div>
-        <el-descriptions :column="3" size="small" style="margin-top:12px">
-          <el-descriptions-item label="合计">{{ fmt(orderResult.totalAmount) }}</el-descriptions-item>
-          <el-descriptions-item label="优惠">-{{ fmt(orderResult.discountAmount) }}</el-descriptions-item>
-          <el-descriptions-item label="实付">¥{{ fmt(orderResult.payAmount) }}</el-descriptions-item>
-        </el-descriptions>
+    <el-dialog v-model="doneVisible" title="🎉 下单成功" width="400px">
+      <div v-for="(r, i) in orderResults" :key="i" class="done-box">
+        <el-divider v-if="i > 0" style="margin:12px 0" />
+        <div class="done-item">{{ r.stallName }} · 订单号 <b>{{ r.res.orderNo }}</b></div>
+        <div class="pickup-code">{{ r.res.deliveryType === 0 ? r.res.pickupCode : '🛵' }}</div>
+        <div class="done-sub">{{ r.res.deliveryType === 0 ? '出餐后凭取餐码取餐' : '商家出餐后骑手配送' }}
+          · 实付 ¥{{ fmt(r.res.payAmount) }}<template v-if="r.res.discountAmount > 0">（券减 {{ fmt(r.res.discountAmount) }}）</template>
+        </div>
       </div>
+      <el-alert v-if="failedGroups.length" type="warning" :closable="false" style="margin-top:10px"
+        :title="`以下档口下单失败：${failedGroups.join('、')}（可能余额不足或库存售罄，其余菜品保留在购物车）`" />
       <template #footer>
         <el-button @click="doneVisible = false">继续逛</el-button>
         <el-button type="primary" @click="$router.push('/student/orders')">查看订单</el-button>
@@ -222,6 +235,21 @@ const cart = ref([])
 const cartLoading = ref(false)
 const cartTotal = computed(() => cart.value.reduce((s, i) => s + Number(i.price) * Number(i.quantity), 0))
 
+// 按档口分组：跨档口自动拆单的后端契约（一单只能属于一个档口）
+const cartGroups = computed(() => {
+  const map = new Map()
+  for (const i of cart.value) {
+    if (!map.has(i.stallName)) {
+      map.set(i.stallName, { stallName: i.stallName, items: [], subtotal: 0 })
+    }
+    const g = map.get(i.stallName)
+    g.items.push(i)
+    g.subtotal += Number(i.price) * Number(i.quantity)
+  }
+  return [...map.values()]
+})
+const cartGroupNames = computed(() => cartGroups.value.map(g => g.stallName).join('、'))
+
 async function refreshCart() {
   cartLoading.value = true
   try {
@@ -262,12 +290,15 @@ async function clearCart() {
 const checkoutVisible = ref(false)
 const submitting = ref(false)
 const doneVisible = ref(false)
-const orderResult = ref(null)
+const orderResults = ref([])   // [{ stallName, res }]
+const failedGroups = ref([])   // 下单失败的档口名
 const usableCoupons = ref([])
 const checkout = reactive({ deliveryType: 0, couponId: undefined })
 
 const pickedCoupon = computed(() => usableCoupons.value.find(c => c.id === checkout.couponId))
 const discount = computed(() => {
+  // 券只对单档口订单生效（多档口拆单时后端逐单计算，前端不预估）
+  if (cartGroups.value.length > 1) return 0
   const c = pickedCoupon.value
   if (!c || cartTotal.value < Number(c.threshold)) return 0
   return Math.min(Number(c.amount), cartTotal.value)
@@ -280,15 +311,32 @@ function openCheckout() {
   checkoutVisible.value = true
 }
 
+/**
+ * 按档口拆单提交：后端契约是一笔订单只能属于一个档口，
+ * 跨档口时逐档口分别创建订单（每笔独立扣款/取餐码），
+ * 某一笔失败（如档口售罄/余额不足）不影响其余订单，失败档口菜品保留在购物车。
+ */
 async function submitOrder() {
   submitting.value = true
+  orderResults.value = []
+  failedGroups.value = []
   try {
-    const res = await orderCreate({
-      deliveryType: checkout.deliveryType,
-      couponId: checkout.couponId || undefined,
-      items: cart.value.map(i => ({ dishId: i.dishId, quantity: i.quantity }))
-    })
-    orderResult.value = res.data
+    for (const g of cartGroups.value) {
+      try {
+        const res = await orderCreate({
+          deliveryType: checkout.deliveryType,
+          couponId: cartGroups.value.length === 1 ? (checkout.couponId || undefined) : undefined,
+          items: g.items.map(i => ({ dishId: i.dishId, quantity: i.quantity }))
+        })
+        orderResults.value.push({ stallName: g.stallName, res: res.data })
+      } catch (e) {
+        failedGroups.value.push(g.stallName)
+      }
+    }
+    if (orderResults.value.length === 0) {
+      ElMessage.error('全部订单均未成功，请检查余额或库存后重试')
+      return
+    }
     checkoutVisible.value = false
     doneVisible.value = true
     await refreshCart()
@@ -415,6 +463,27 @@ onMounted(async () => {
   flex-direction: column;
   gap: 12px;
 }
+.cart-group-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #83886a;
+  background: #eef0df;
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+.cg-sub { font-weight: 500; color: #9b9d84; font-size: 11.5px; }
+.ck-group {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12.5px;
+  color: #5e5f4e;
+  padding: 3px 2px;
+  border-bottom: 1px dashed #eceada;
+}
+.ck-group:last-of-type { margin-bottom: 8px; }
 .cart-item {
   display: flex;
   align-items: center;
