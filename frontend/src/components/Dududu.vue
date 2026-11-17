@@ -178,6 +178,14 @@ function idleChatter() {
   setTimeout(() => { if (!chatOpen.value) showGreet.value = false }, 7000)
 }
 
+// ---------- 打开对话窗 ----------
+function open() {
+  chatOpen.value = true
+  showGreet.value = false
+  greeting.value = timeGreet()
+  scrollToBottom()
+}
+
 // ---------- 拖动小人 ----------
 const DOLL_KEY = 'dududu-pos'
 const pos = reactive(JSON.parse(localStorage.getItem(DOLL_KEY) || 'null') || { right: 26, bottom: 26 })
