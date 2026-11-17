@@ -36,7 +36,7 @@
         <div class="dish-body">
           <div class="dish-name">{{ d.name }}</div>
           <div class="dish-meta">
-            <span class="dish-stall">{{ d.stallName }}</span>
+            <span class="dish-stall">{{ d.categoryName || d.stallName }}</span>
             <el-tag v-if="d.avgScore" type="warning" size="small" round>⭐{{ d.avgScore }}</el-tag>
           </div>
           <div class="dish-bottom">
@@ -394,15 +394,18 @@ onMounted(async () => {
   box-shadow: 0 12px 28px rgba(147, 151, 122, 0.3);
 }
 .dish-img {
-  height: 110px;
+  height: 150px;
+  overflow: hidden;
   display: grid;
   place-items: center;
   font-size: 40px;
   background: linear-gradient(120deg, #eff0e2, #e4e6d4);
 }
 .dish-img img {
+  /* 写死像素高度：竖图/横图都严格裁剪，不依赖百分比解析 */
+  display: block;
   width: 100%;
-  height: 100%;
+  height: 150px;
   object-fit: cover;
 }
 .dish-body { padding: 10px 12px 0; }

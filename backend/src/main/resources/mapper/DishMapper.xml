@@ -40,9 +40,11 @@
             d.daily_stock,
             d.sale_count,
             d.status,
-            s.name AS stall_name
+            s.name AS stall_name,
+            dc.name AS category_name
         FROM dish d
         JOIN stall s ON s.id = d.stall_id
+        LEFT JOIN dish_category dc ON dc.id = d.category_id
         <include refid="pageWhere"/>
         ORDER BY d.status DESC, d.id ASC
     </select>
@@ -60,9 +62,11 @@
             d.daily_stock,
             d.sale_count,
             d.status,
-            s.name AS stall_name
+            s.name AS stall_name,
+            dc.name AS category_name
         FROM dish d
         JOIN stall s ON s.id = d.stall_id
+        LEFT JOIN dish_category dc ON dc.id = d.category_id
         WHERE d.id IN
         <foreach collection="ids" item="id" open="(" separator="," close=")">
             #{id}

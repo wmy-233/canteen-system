@@ -23,6 +23,9 @@ public class DishVO {
 
     private Long categoryId;
 
+    /** 分类名称（素菜/小吃饮品…，卡片标签用） */
+    private String categoryName;
+
     private String name;
 
     private String description;

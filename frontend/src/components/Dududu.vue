@@ -1,5 +1,5 @@
 <template>
-  <!-- 悬浮智能助手：Q版胖嘟嘟小人 -->
+  <!-- 悬浮智能助手：Q版胖嘟嘟小人（可拖动） -->
   <div class="mascot" :class="{ open: chatOpen }">
     <!-- 对话窗口 -->
     <transition name="mascot-pop">
@@ -9,13 +9,17 @@
             <span class="chat-avatar">🤗</span>
             <div>
               <div class="chat-name">胆子肥嘟嘟</div>
-              <div class="chat-status">●在线 · 你的食堂小管家</div>
+              <div class="chat-status">●DeepSeek 在线 · 你的食堂小管家</div>
             </div>
           </div>
-          <button class="chat-close" @click="chatOpen = false">✕</button>
+          <div class="chat-tools">
+            <button class="chat-tool" title="清空聊天记录" @click="clearHistory">🗑</button>
+            <button class="chat-tool" @click="chatOpen = false">✕</button>
+          </div>
         </div>
 
         <div ref="msgList" class="chat-body">
+          <div class="hist-tip">上方是本次的聊天历史（已自动保存），点 🗑 可清空</div>
           <div v-for="(m, i) in messages" :key="i" :class="['msg', m.role]">
             <div class="bubble">{{ m.text }}</div>
           </div>
@@ -35,15 +39,22 @@
       </div>
     </transition>
 
-    <!-- 打招呼气泡 -->
+    <!-- 打招呼/待机搭话气泡 -->
     <transition name="mascot-pop">
       <div v-if="!chatOpen && showGreet" class="greet-bubble" @click="open()">
         <span class="greet-text">{{ greeting }}</span><span class="greet-tail"></span>
       </div>
     </transition>
 
-    <!-- 小人本体（SVG 手绘） -->
-    <button class="doll" :class="{ hop: hop }" @click="open()">
+    <!-- 小人本体（SVG 手绘，可拖动） -->
+    <button
+      class="doll" :class="{ hop: hop }"
+      :style="dollStyle"
+      @pointerdown="dragStart"
+      @pointermove="dragMove"
+      @pointerup="dragEnd"
+      @pointercancel="dragEnd"
+    >
       <svg viewBox="0 0 120 130" width="64" height="70" aria-label="胆子肥嘟嘟">
         <!-- 弹跳影子 -->
         <ellipse class="shadow" cx="60" cy="122" rx="26" ry="5" fill="rgba(110,110,95,0.25)" />
@@ -91,8 +102,10 @@
 </template>
 
 <script setup>
-import { nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useUserStore } from '../stores/user'
+import { dishHot } from '../api/dish'
+import { walletInfo } from '../api/wallet'
 
 const chatOpen = ref(false)
 const showGreet = ref(false)
@@ -100,26 +113,101 @@ const greeting = ref('充能完毕！我是胆子肥嘟嘟')
 const typing = ref(false)
 const draft = ref('')
 const msgList = ref()
+const hop = ref(false)
 const userStore = useUserStore()
 
 const quickQuestions = ['推荐点啥？', '余额还剩多少？', '订单在哪看？', '给我讲个笑话']
 
-const messages = ref([
-  { role: 'bot', text: '嗨～我是胆子肥嘟嘟，你的专属食堂小管家！点击下方问题，或直接打字问我吧～ 🍚' }
-])
+// ---------- 聊天历史：localStorage 持久化，刷新不丢 ----------
+const HIST_KEY = 'dududu-chat'
+const SAVE_KEY = 'dududu-seek-history'
 
-// 打招呼语
-onMounted(() => {
-  showGreet.value = true
+const messages = ref([])
+
+// DeepSeek 多轮上下文（持久化，刷新后仍记得聊过什么）
+const seekHistory = ref([])
+
+function persist() {
+  try {
+    localStorage.setItem(HIST_KEY, JSON.stringify(messages.value.slice(-40)))
+    localStorage.setItem(SAVE_KEY, JSON.stringify(seekHistory.value.slice(-20)))
+  } catch { /* 空间满忽略 */ }
+}
+
+function loadHistory() {
+  try {
+    const m = JSON.parse(localStorage.getItem(HIST_KEY) || 'null')
+    if (Array.isArray(m) && m.length) messages.value = m
+    const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null')
+    if (Array.isArray(s) && s.length) seekHistory.value = s
+  } catch { /* 坏数据忽略 */ }
+}
+
+function clearHistory() {
+  messages.value = [{ role: 'bot', text: '记录清空啦！我是胆子肥嘟嘟，重新认识一下～ 🍚' }]
+  seekHistory.value = []
+  persist()
+}
+
+// ---------- 时间段问候语 ----------
+function timeGreet() {
+  const h = new Date().getHours()
   const name = userStore.userInfo?.nickname || userStore.userInfo?.username
-  if (name) greeting.value = `${name}同学，今天想吃点啥？`
-  setTimeout(() => { if (!chatOpen.value) showGreet.value = false }, 8000)
-})
+  const who = name ? `${name}同学` : '你'
+  if (h < 10) return `${who}早上好！记得吃早饭哦 🌅`
+  if (h < 14) return `${who}中午吃啥想好了吗？我帮你参谋！🍚`
+  if (h < 18) return `${who}下午茶时间～来点小吃犒劳自己？🧋`
+  return `${who}晚上好！夜宵虽香，可不要贪嘴哦 🌙`
+}
 
-function open() {
-  chatOpen.value = true
-  showGreet.value = false
-  ask('你是谁呀')
+// ---------- 待机搭话：关着窗也会偶尔冒泡 ----------
+const IDLE_WORDS = [
+  '肚子咕咕叫的声音你听到了吗 🥺',
+  '悄悄说：今天的麻辣香锅看起来很香！',
+  '点餐卡住了？点我聊聊呀～',
+  '听说你不是全校最会吃，我不信 😏',
+  '余额和饭量一样，都是迷 🤫'
+]
+let idleTimer = null
+function idleChatter() {
+  if (chatOpen.value || document.hidden) return
+  greeting.value = IDLE_WORDS[Math.floor(Math.random() * IDLE_WORDS.length)]
+  showGreet.value = true
+  hop.value = true
+  setTimeout(() => { hop.value = false }, 600)
+  setTimeout(() => { if (!chatOpen.value) showGreet.value = false }, 7000)
+}
+
+// ---------- 拖动小人 ----------
+const DOLL_KEY = 'dududu-pos'
+const pos = reactive(JSON.parse(localStorage.getItem(DOLL_KEY) || 'null') || { right: 26, bottom: 26 })
+let dragState = null
+
+const dollStyle = computed(() => ({ right: pos.right + 'px', bottom: pos.bottom + 'px' }))
+
+function dragStart(e) {
+  e.preventDefault()
+  dragState = { x: e.clientX, y: e.clientY, right: pos.right, bottom: pos.bottom, moved: false }
+  e.currentTarget.setPointerCapture?.(e.pointerId)
+}
+function dragMove(e) {
+  if (!dragState) return
+  const dx = dragState.x - e.clientX
+  const dy = dragState.y - e.clientY
+  if (Math.abs(dx) + Math.abs(dy) > 4) dragState.moved = true
+  pos.right = Math.min(Math.max(4, dragState.right + dx), window.innerWidth - 90)
+  pos.bottom = Math.min(Math.max(4, dragState.bottom + dy), window.innerHeight - 90)
+}
+function dragEnd() {
+  if (!dragState) return
+  const wasDrag = dragState.moved
+  dragState = null
+  if (wasDrag) {
+    try { localStorage.setItem(DOLL_KEY, JSON.stringify({ ...pos })) } catch { }
+    return
+  }
+  // 未拖动 = 单击 → 开窗
+  open()
 }
 
 // ---------- DeepSeek 真实 AI 问答（失败时回退本地规则） ----------
@@ -130,9 +218,27 @@ const SYSTEM_PROMPT = [
   '人设：活泼可爱、爱吃爱玩、有点小胖但自信，说话带一点颜文字或 emoji，回复简短（不超过 3 句），口语化。',
   '你是食堂点餐助手：可以推荐菜品、聊饮食搭配、帮用户想点餐思路、回答关于食堂/点餐/钱包/订单/投诉的常规问题。',
   '系统里有川湘家常菜、兰州拉面、麻辣香锅三个档口，菜品如宫保鸡丁、红烧排骨、麻婆豆腐、牛肉拉面、羊肉泡馍、麻辣香锅、酸梅汤、冰粉等。',
-  '涉及具体余额/订单状态等个人数据时，提醒用户去「我的钱包」「我的订单」页面查看。',
+  '涉及具体余额/订单状态等个人数据时，若下方提供了【实时数据】就直接引用；没有就提醒用户去「我的钱包」「我的订单」页面查看。',
   '对食堂管理系统的问题可以正常回答；与食堂、吃饭、学习生活无关的敏感话题请礼貌带回到吃饭话题。'
 ].join('\n')
+
+// 抓真实数据注入上下文（余额/热销榜），失败静默
+async function buildRealtimeContext() {
+  const parts = []
+  try {
+    if (userStore.role === 'STUDENT') {
+      const w = await walletInfo()
+      if (w?.data?.balance != null) parts.push(`用户当前钱包余额 ${w.data.balance} 元`)
+    }
+  } catch { }
+  try {
+    const h = await dishHot()
+    const list = Array.isArray(h?.data) ? h.data : (h?.data?.list || [])
+    const names = list.slice(0, 5).map(d => d.name ? `${d.name}(${d.saleCount ?? '?'}份)` : '').filter(Boolean).join('、')
+    if (names) parts.push(`今日热销榜前五：${names}`)
+  } catch { }
+  return parts
+}
 
 // 本地兜底规则（AI 挂了也能聊）
 function replyOf(q) {
@@ -146,11 +252,6 @@ function replyOf(q) {
   if (/减肥|瘦身|热量/.test(q)) return '想要低卡？推荐凉拌黄瓜和酸汤水饺！但我胖嘟嘟的样子…你就当我没说 🙈'
   return '这个问题有点超出我圆滚滚的脑容量了 😥 不过吃饭的事我都懂，要不要我帮你推荐几个菜？'
 }
-
-// 多轮上下文：只带最近 6 条，省 token
-const chatHistory = ref([
-  { role: 'system', content: SYSTEM_PROMPT }
-])
 
 async function askDeepSeek(history) {
   const res = await fetch('https://api.deepseek.com/chat/completions', {
@@ -173,34 +274,40 @@ async function askDeepSeek(history) {
   return text
 }
 
-function ask(text) {
+function push(role, text) {
+  messages.value.push({ role, text })
+  scrollToBottom()
+  persist()
+}
+
+async function ask(text) {
   draft.value = ''
-  messages.value.push({ role: 'user', text })
+  push('user', text)
   typing.value = true
   scrollToBottom()
 
-  // 组装带上下文的请求
-  const history = [
-    ...chatHistory.value,
-    { role: 'user', content: text }
-  ]
+  // 实时数据注入（余额/热销榜）
+  let history = [ ...seekHistory.value, { role: 'user', content: text } ]
+  if (!seekHistory.value.length) history = [{ role: 'system', content: SYSTEM_PROMPT }, ...history]
+  try {
+    const parts = await buildRealtimeContext()
+    if (parts.length) history = [...history, { role: 'system', content: '【实时数据】' + parts.join('；') }]
+  } catch { }
 
-  const finish = (botText, ok) => {
+  const finish = (botText) => {
     typing.value = false
-    messages.value.push({ role: 'bot', text: botText })
-    scrollToBottom()
+    push('bot', botText)
   }
 
   if (!DS_KEY) { finish(replyOf(text)); return }
 
   askDeepSeek(history)
     .then(answer => {
-      chatHistory.value = [...history, { role: 'assistant', content: answer }].slice(-8)
-      // 首条 system 提示词始终保留
-      if (!chatHistory.value[0]?.content?.includes('胆子肥嘟嘟')) {
-        chatHistory.value = [{ role: 'system', content: SYSTEM_PROMPT }, ...chatHistory.value]
-      }
-      finish(answer, true)
+      seekHistory.value = [...history.filter(m => m.role !== 'system' || !m.content.startsWith('【实时数据】')),
+        { role: 'assistant', content: answer }].slice(-20)
+      seekHistory.value = [{ role: 'system', content: SYSTEM_PROMPT }, ...seekHistory.value.filter(m => m.role !== 'system')]
+      persist()
+      finish(answer)
     })
     .catch(() => finish(replyOf(text)))
 }
@@ -213,6 +320,19 @@ function send() {
 function scrollToBottom() {
   nextTick(() => { if (msgList.value) msgList.value.scrollTop = msgList.value.scrollHeight })
 }
+
+onMounted(() => {
+  loadHistory()
+  if (!messages.value.length) {
+    messages.value = [{ role: 'bot', text: '嗨～我是胆子肥嘟嘟，你的专属食堂小管家！点下方问题，或直接打字问我吧～ 🍚' }]
+  }
+  greeting.value = timeGreet()
+  showGreet.value = true
+  setTimeout(() => { if (!chatOpen.value) showGreet.value = false }, 8000)
+  idleTimer = setInterval(idleChatter, 100000) // 每 100 秒待机搭话一次
+})
+
+onBeforeUnmount(() => { if (idleTimer) clearInterval(idleTimer) })
 </script>
 
 <style scoped>
@@ -223,18 +343,22 @@ function scrollToBottom() {
   z-index: 3000;
 }
 
-/* ---- 小人按钮 ---- */
+/* ---- 小人按钮（可拖动，位置由内联样式控制） ---- */
 .doll {
   display: block;
+  position: relative;
   border: none;
   background: transparent;
   padding: 0;
-  cursor: pointer;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
   transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
   filter: drop-shadow(0 8px 16px rgba(147, 151, 122, 0.45));
   animation: doll-float 3.4s ease-in-out infinite;
 }
 .doll:hover { transform: scale(1.12) rotate(-4deg); }
+.doll:active { cursor: grabbing; }
 .doll.hop { animation: doll-hop 0.5s ease; }
 @keyframes doll-float {
   0%, 100% { translate: 0 0; }
@@ -324,20 +448,28 @@ function scrollToBottom() {
 }
 .chat-name { font-weight: 600; font-size: 14px; }
 .chat-status { font-size: 11px; opacity: 0.85; }
-.chat-close {
+.chat-tools { display: flex; gap: 6px; }
+.chat-tool {
   border: none; background: transparent;
-  color: #fff; font-size: 15px; cursor: pointer;
+  color: #fff; font-size: 13px; cursor: pointer;
   opacity: 0.75; transition: opacity 0.2s;
+  padding: 2px 4px;
 }
-.chat-close:hover { opacity: 1; }
+.chat-tool:hover { opacity: 1; }
 
 .chat-body {
   height: 260px;
   overflow-y: auto;
-  padding: 14px 12px;
+  padding: 10px 12px 14px;
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+.hist-tip {
+  text-align: center;
+  font-size: 10.5px;
+  color: #b3b5a0;
+  padding-bottom: 2px;
 }
 .msg { display: flex; }
 .msg.user { justify-content: flex-end; }
