@@ -67,6 +67,7 @@
     <!-- 菜品详情弹窗 -->
     <el-dialog v-model="detailVisible" :title="detail?.name" width="420px">
       <div v-if="detail" class="detail-box">
+        <img v-if="detail.image" :src="detail.image" class="detail-img" alt="">
         <p class="desc">{{ detail.description || '（暂无描述）' }}</p>
         <el-descriptions :column="2" border size="small">
           <el-descriptions-item label="价格">¥{{ fmt(detail.price) }}</el-descriptions-item>
@@ -445,6 +446,13 @@ onMounted(async () => {
 .pager {
   margin-top: 18px;
   justify-content: center;
+}
+.detail-img {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  border-radius: 12px;
+  margin-bottom: 10px;
 }
 .detail-box .desc {
   font-size: 13px;

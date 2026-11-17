@@ -122,17 +122,55 @@ function open() {
   ask('你是谁呀')
 }
 
-// 关键词规则问答（mock，后续可替换为 AI 接口）
+// ---------- DeepSeek 真实 AI 问答（失败时回退本地规则） ----------
+const DS_KEY = import.meta.env.VITE_DEEPSEEK_API_KEY || ''
+
+const SYSTEM_PROMPT = [
+  '你是「胆子肥嘟嘟」，智慧校园食堂点餐系统的吉祥物兼小管家，一只圆滚滚的包子小人。',
+  '人设：活泼可爱、爱吃爱玩、有点小胖但自信，说话带一点颜文字或 emoji，回复简短（不超过 3 句），口语化。',
+  '你是食堂点餐助手：可以推荐菜品、聊饮食搭配、帮用户想点餐思路、回答关于食堂/点餐/钱包/订单/投诉的常规问题。',
+  '系统里有川湘家常菜、兰州拉面、麻辣香锅三个档口，菜品如宫保鸡丁、红烧排骨、麻婆豆腐、牛肉拉面、羊肉泡馍、麻辣香锅、酸梅汤、冰粉等。',
+  '涉及具体余额/订单状态等个人数据时，提醒用户去「我的钱包」「我的订单」页面查看。',
+  '对食堂管理系统的问题可以正常回答；与食堂、吃饭、学习生活无关的敏感话题请礼貌带回到吃饭话题。'
+].join('\n')
+
+// 本地兜底规则（AI 挂了也能聊）
 function replyOf(q) {
   if (/你是谁|你好|嗨|hello/i.test(q)) return '我是胆子肥嘟嘟！虽然胆子肥，但饭量更肥～管你点餐、查余额、讲笑话，样样都行！'
-  if (/推荐|吃|点餐|啥/.test(q)) return '今天一号档口的「红烧肉套餐」限量快抢完了，趁热闭眼冲！保守党可以选二号的番茄炒蛋，8 块钱吃着不心疼～'
-  if (/余额|钱包|钱/.test(q)) return '你的钱包余额是 58.50 元（mock 数据），还够两顿小火锅！'
-  if (/订单|物流|出餐/.test(q)) return '你有一条进行中的订单：番茄炒蛋 ×1，商家正在出餐～去「我的订单」就能看状态啦'
-  if (/优惠券|券|优惠/.test(q)) return '你有 2 张可用优惠券，其中一张今天到期，别浪费啦！'
+  if (/推荐|吃|点餐|啥/.test(q)) return '今天一号档口的「红烧排骨」超受欢迎，趁热冲！保守党可以来碗牛肉拉面，暖胃又顶饱～'
+  if (/余额|钱包|钱/.test(q)) return '去「我的钱包」看看就知道啦，还够几顿小火锅我自己也好奇 😋'
+  if (/订单|出餐|取餐/.test(q)) return '去「我的订单」看状态～商家出餐后凭取餐码取餐，配送单就等骑手电话哦'
+  if (/优惠券|券|优惠/.test(q)) return '「优惠券」页面有可领的券，下单时能自动帮你选最划算的一张～'
+  if (/投诉/.test(q)) return '对订单不满意可以在「我的订单」里发起投诉，商家回应后管理员会裁定，放心维权！'
   if (/笑话|搞笑|逗|无聊/.test(q)) return '食堂阿姨看了我一眼手就抖了——所以我减肥全靠缘分 😂'
-  if (/减肥|瘦身|热量/.test(q)) return '想要低卡？推荐清蒸系列和白灼青菜！但我胖嘟嘟的样子…你就当我没说 🙈'
-  if (/档口|食堂|门/.test(q)) return '全校 12 个档口都在营业中，川湘风味排队长但值！'
-  return '这个问题有点超出我圆滚滚的脑容量了 😥 你可以问吃什么、余额、订单、优惠券，或者让我讲个笑话～'
+  if (/减肥|瘦身|热量/.test(q)) return '想要低卡？推荐凉拌黄瓜和酸汤水饺！但我胖嘟嘟的样子…你就当我没说 🙈'
+  return '这个问题有点超出我圆滚滚的脑容量了 😥 不过吃饭的事我都懂，要不要我帮你推荐几个菜？'
+}
+
+// 多轮上下文：只带最近 6 条，省 token
+const chatHistory = ref([
+  { role: 'system', content: SYSTEM_PROMPT }
+])
+
+async function askDeepSeek(history) {
+  const res = await fetch('https://api.deepseek.com/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${DS_KEY}`
+    },
+    body: JSON.stringify({
+      model: 'deepseek-chat',
+      messages: history,
+      max_tokens: 220,
+      temperature: 1.1
+    })
+  })
+  if (!res.ok) throw new Error('deepseek http ' + res.status)
+  const j = await res.json()
+  const text = j?.choices?.[0]?.message?.content?.trim()
+  if (!text) throw new Error('empty reply')
+  return text
 }
 
 function ask(text) {
@@ -140,11 +178,31 @@ function ask(text) {
   messages.value.push({ role: 'user', text })
   typing.value = true
   scrollToBottom()
-  setTimeout(() => {
+
+  // 组装带上下文的请求
+  const history = [
+    ...chatHistory.value,
+    { role: 'user', content: text }
+  ]
+
+  const finish = (botText, ok) => {
     typing.value = false
-    messages.value.push({ role: 'bot', text: replyOf(text) })
+    messages.value.push({ role: 'bot', text: botText })
     scrollToBottom()
-  }, 700 + Math.random() * 600)
+  }
+
+  if (!DS_KEY) { finish(replyOf(text)); return }
+
+  askDeepSeek(history)
+    .then(answer => {
+      chatHistory.value = [...history, { role: 'assistant', content: answer }].slice(-8)
+      // 首条 system 提示词始终保留
+      if (!chatHistory.value[0]?.content?.includes('胆子肥嘟嘟')) {
+        chatHistory.value = [{ role: 'system', content: SYSTEM_PROMPT }, ...chatHistory.value]
+      }
+      finish(answer, true)
+    })
+    .catch(() => finish(replyOf(text)))
 }
 
 function send() {
