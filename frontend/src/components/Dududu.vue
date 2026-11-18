@@ -27,21 +27,35 @@
           </div>
         </div>
 
+        <!-- 点击面板外空白处关闭的遮罩 -->
+        <div v-if="histOpen" class="hist-mask" @click="histOpen = false" />
+
         <!-- 历史会话侧滑面板 -->
         <transition name="hist-slide">
           <div v-if="histOpen" class="hist-panel">
-            <div class="hist-head">🕘 聊天历史（{{ sessions.length }} 个会话）</div>
+            <div class="hist-head">
+              <span>🕘 聊天历史（{{ sessions.length }} 个会话）</span>
+              <button class="hist-close" title="收起" @click="histOpen = false">‹</button>
+            </div>
             <div
               v-for="s in sessions" :key="s.id"
               class="hist-item" :class="{ active: s.id === currentId }"
               @click="switchSession(s.id)"
             >
-              <div class="hi-title">{{ s.title }}</div>
-              <div class="hi-meta">{{ (s.msgs.length - 1) }} 条 · {{ fmtTime(s.updateTime) }}</div>
+              <div class="hi-main">
+                <div class="hi-title">{{ s.title }}</div>
+                <div class="hi-meta">{{ (s.msgs.length - 1) }} 条 · {{ fmtTime(s.updateTime) }}</div>
+              </div>
+              <button class="hi-del" title="删除此会话" @click.stop="removeSession(s.id)">🗑</button>
             </div>
             <el-empty v-if="sessions.length <= 1" description="还没有更多历史会话" :image-size="40" />
           </div>
         </transition>
+
+        <!-- 查看历史会话提示条 -->
+        <div v-if="viewingHistory" class="viewing-tip">
+          正在查看历史会话，点击左下角新建对话可开启新话题
+        </div>
 
         <div ref="msgList" class="chat-body">
           <div v-if="messages.length <= 1" class="empty-tip">
@@ -74,6 +88,9 @@
         </div>
 
         <form class="chat-input" @submit.prevent="send">
+          <el-tooltip content="新建对话，开启新话题" placement="top">
+            <button type="button" class="new-chat-btn" title="新建对话" @click="createSession">🆕</button>
+          </el-tooltip>
           <el-tooltip content="图片/附件（多模态扩展中，敬请期待）" placement="top">
             <button type="button" class="attach-btn">📎</button>
           </el-tooltip>
@@ -143,12 +160,13 @@ const histOpen = ref(false)
 const showGreet = ref(false)
 const greeting = ref('充能完毕！我是胆子肥嘟嘟')
 const typing = ref(false)
+const viewingHistory = ref(false)
 const draft = ref('')
 const msgList = ref()
 const hop = ref(false)
 const userStore = useUserStore()
 
-const quickQuestions = ['推荐点啥？', '余额还剩多少？', '订单在哪看？', '给我讲个笑话']
+const quickQuestions = ['推荐点啥？', '📅 查今日特价', '💰 查余额', '📜 查订单', '给我讲个笑话', '有什么低卡的？']
 
 // ================= 多会话历史（localStorage 持久化） =================
 const SES_KEY = 'dududu-sessions'
@@ -192,6 +210,9 @@ function loadSessions() {
 function switchSession(id) {
   currentId.value = id
   histOpen.value = false
+  // 切到含真实对话的旧会话时提示上下文已恢复
+  const s = sessions.value.find(x => x.id === id)
+  viewingHistory.value = !!s && s.msgs.length > 1
   scrollToBottom()
 }
 
@@ -200,7 +221,27 @@ function createSession() {
   sessions.value = [ns, ...sessions.value]
   currentId.value = ns.id
   histOpen.value = false
+  viewingHistory.value = false
   persist()
+}
+
+// 删除单条会话（带确认）
+async function removeSession(id) {
+  try {
+    await ElMessageBox.confirm('确定要删除此条会话吗？', '删除会话', {
+      confirmButtonText: '删除', cancelButtonText: '再想想', type: 'warning'
+    })
+  } catch { return }
+  const idx = sessions.value.findIndex(x => x.id === id)
+  if (idx < 0) return
+  sessions.value.splice(idx, 1)
+  if (currentId.value === id) {
+    if (sessions.value.length) currentId.value = sessions.value[0].id
+    else { const ns = newSession(); sessions.value = [ns]; currentId.value = ns.id }
+    viewingHistory.value = false
+  }
+  persist()
+  ElMessage.success('已删除该会话')
 }
 
 async function clearCurrent() {
@@ -215,6 +256,7 @@ async function clearCurrent() {
     s.seek = []
     s.updateTime = Date.now()
   }
+  viewingHistory.value = false
   persist()
   ElMessage.success('已清空当前对话')
 }
@@ -408,18 +450,62 @@ async function askDeepSeek(history) {
   return text
 }
 
+// 根据用户第一句提问智能命名
+function smartTitle(text) {
+  const t = text.trim()
+  if (/特价|打折|优惠活动/.test(t)) return '查今日特价'
+  if (/余额|钱包|还有多少钱/.test(t)) return '查余额'
+  if (/订单|出餐|取餐|配送/.test(t)) return '查订单'
+  if (/推荐|吃啥|点什么|好吃的| suggest/i.test(t)) return '菜品推荐'
+  if (/优惠券|券/.test(t)) return '优惠券'
+  if (/笑话|搞笑|逗/.test(t)) return '讲笑话'
+  if (/低卡|减肥|热量|瘦/.test(t)) return '低卡推荐'
+  return t.slice(0, 14) || '新的对话'
+}
+
 function push(role, text) {
   const s = sessions.value.find(x => x.id === currentId.value)
   if (!s) return
   s.msgs.push({ role, text })
-  if (role === 'user') s.title = text.slice(0, 14) || s.title
+  if (role === 'user') {
+    const isFresh = s.msgs.length <= 2 // 第一句用户消息
+    if (isFresh || s.title === '新的对话') s.title = smartTitle(text)
+  }
   s.updateTime = Date.now()
   persist()
   scrollToBottom()
 }
 
+// 打字机逐字输出
+let typeTimer = null
+function typeOut(botText) {
+  typing.value = false
+  const s = sessions.value.find(x => x.id === currentId.value)
+  if (!s) { push('bot', botText); return }
+  s.msgs.push({ role: 'bot', text: '' })
+  s.updateTime = Date.now()
+  scrollToBottom()
+  let i = 0
+  clearInterval(typeTimer)
+  typeTimer = setInterval(() => {
+    const cur = sessions.value.find(x => x.id === currentId.value)
+    if (!cur) { clearInterval(typeTimer); return }
+    const m = cur.msgs[cur.msgs.length - 1]
+    if (!m || m.role !== 'bot') { clearInterval(typeTimer); return }
+    // 每次蹦 1~2 个字，节奏更自然
+    i += Math.random() < 0.35 ? 2 : 1
+    m.text = botText.slice(0, i)
+    if (msgList.value) msgList.value.scrollTop = msgList.value.scrollHeight
+    if (i >= botText.length) {
+      clearInterval(typeTimer)
+      persist()
+    }
+  }, 20)
+}
+
 async function ask(text) {
   draft.value = ''
+  viewingHistory.value = false
   push('user', text)
   typing.value = true
   scrollToBottom()
@@ -433,8 +519,7 @@ async function ask(text) {
   } catch { }
 
   const finish = (botText) => {
-    typing.value = false
-    push('bot', botText)
+    typeOut(botText)
   }
 
   if (!DS_KEY) { finish(replyOf(text)); return }
@@ -478,7 +563,7 @@ onMounted(() => {
   idleTimer = setInterval(idleChatter, 100000)
 })
 
-onBeforeUnmount(() => { if (idleTimer) clearInterval(idleTimer) })
+onBeforeUnmount(() => { if (idleTimer) clearInterval(idleTimer); if (typeTimer) clearInterval(typeTimer) })
 </script>
 
 <style scoped>
@@ -602,6 +687,12 @@ onBeforeUnmount(() => { if (idleTimer) clearInterval(idleTimer) })
 }
 .chat-tool:hover { opacity: 1; }
 
+/* 历史面板遮罩（点击空白处关闭） */
+.hist-mask {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+}
 /* 历史会话侧滑面板 */
 .hist-panel {
   position: absolute;
@@ -615,9 +706,32 @@ onBeforeUnmount(() => { if (idleTimer) clearInterval(idleTimer) })
   overflow-y: auto;
   z-index: 5;
 }
-.hist-head { font-weight: 700; font-size: 13px; color: #5e5f4e; margin-bottom: 10px; }
+.hist-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 700;
+  font-size: 13px;
+  color: #5e5f4e;
+  margin-bottom: 10px;
+}
+.hist-close {
+  border: none;
+  background: transparent;
+  color: #7d8168;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 8px;
+  transition: all 0.15s;
+}
+.hist-close:hover { background: #e3e6d0; color: #4f5040; }
 .hist-item {
-  padding: 9px 10px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 9px 6px 9px 10px;
   border-radius: 10px;
   cursor: pointer;
   transition: background 0.15s;
@@ -625,6 +739,7 @@ onBeforeUnmount(() => { if (idleTimer) clearInterval(idleTimer) })
 }
 .hist-item:hover { background: #eeeadd; }
 .hist-item.active { background: #e3e6d0; }
+.hi-main { flex: 1; min-width: 0; }
 .hi-title {
   font-size: 13px;
   color: #4f5040;
@@ -634,9 +749,31 @@ onBeforeUnmount(() => { if (idleTimer) clearInterval(idleTimer) })
   text-overflow: ellipsis;
 }
 .hi-meta { font-size: 11px; color: #9b9d84; margin-top: 3px; }
+/* hover 显示删除按钮 */
+.hi-del {
+  flex: none;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  cursor: pointer;
+  opacity: 0;
+  padding: 3px 4px;
+  border-radius: 6px;
+  transition: opacity 0.15s, background 0.15s;
+}
+.hist-item:hover .hi-del { opacity: 0.75; }
+.hi-del:hover { opacity: 1 !important; background: #f3ded6; }
 .hist-slide-enter-active, .hist-slide-leave-active { transition: transform 0.25s ease, opacity 0.25s; }
 .hist-slide-enter-from, .hist-slide-leave-to { transform: translateX(-100%); opacity: 0; }
 
+/* 查看历史会话提示条 */
+.viewing-tip {
+  padding: 6px 14px;
+  font-size: 11.5px;
+  color: #8a6d3b;
+  background: #f6efdc;
+  border-bottom: 1px dashed #e3d9bd;
+}
 /* 消息区 */
 .chat-body {
   height: 280px;
@@ -646,6 +783,14 @@ onBeforeUnmount(() => { if (idleTimer) clearInterval(idleTimer) })
   flex-direction: column;
   gap: 10px;
 }
+/* 细浅色圆角滚动条 */
+.chat-body::-webkit-scrollbar { width: 4px; }
+.chat-body::-webkit-scrollbar-track { background: transparent; }
+.chat-body::-webkit-scrollbar-thumb {
+  background: #d6d5c2;
+  border-radius: 4px;
+}
+.chat-body::-webkit-scrollbar-thumb:hover { background: #c2c1ae; }
 .empty-tip {
   margin: auto;
   text-align: center;
@@ -759,6 +904,17 @@ onBeforeUnmount(() => { if (idleTimer) clearInterval(idleTimer) })
   opacity: 0.55;
   padding: 2px;
 }
+.new-chat-btn {
+  flex: none;
+  border: none;
+  background: transparent;
+  font-size: 15px;
+  cursor: pointer;
+  opacity: 0.75;
+  padding: 2px;
+  transition: opacity 0.15s, transform 0.15s;
+}
+.new-chat-btn:hover { opacity: 1; transform: scale(1.15); }
 .chat-input :deep(.el-input) { flex: 1; }
 
 /* 出场动画 */
