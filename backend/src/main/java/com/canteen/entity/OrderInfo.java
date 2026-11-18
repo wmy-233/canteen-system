@@ -28,6 +28,12 @@ public class OrderInfo {
 
     private BigDecimal payAmount;
 
+    /** 下单核销的 user_coupon 记录ID（精确退券） */
+    private Long userCouponId;
+
+    /** 批量下单批次号（跨档口原子下单） */
+    private String batchNo;
+
     /** 取餐码（自取单） */
     private String pickupCode;
 

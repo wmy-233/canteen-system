@@ -38,6 +38,7 @@
             d.price,
             d.image,
             d.daily_stock,
+            d.is_limited,
             d.sale_count,
             d.status,
             s.name AS stall_name,
@@ -60,6 +61,7 @@
             d.price,
             d.image,
             d.daily_stock,
+            d.is_limited,
             d.sale_count,
             d.status,
             s.name AS stall_name,
@@ -75,7 +77,7 @@
 
     <select id="selectById" resultType="com.canteen.entity.Dish">
         SELECT id, stall_id, category_id, name, description, price, image,
-               daily_stock, sale_count, status, create_time, update_time
+               daily_stock, is_limited, sale_count, status, create_time, update_time
         FROM dish
         WHERE id = #{id}
         LIMIT 1
@@ -83,15 +85,15 @@
 
     <select id="selectForUpdate" resultType="com.canteen.entity.Dish">
         SELECT id, stall_id, category_id, name, description, price, image,
-               daily_stock, sale_count, status, create_time, update_time
+               daily_stock, is_limited, sale_count, status, create_time, update_time
         FROM dish
         WHERE id = #{id}
         FOR UPDATE
     </select>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
-        INSERT INTO dish (stall_id, category_id, name, description, price, image, daily_stock, status)
-        VALUES (#{stallId}, #{categoryId}, #{name}, #{description}, #{price}, #{image}, #{dailyStock}, #{status})
+        INSERT INTO dish (stall_id, category_id, name, description, price, image, daily_stock, is_limited, status)
+        VALUES (#{stallId}, #{categoryId}, #{name}, #{description}, #{price}, #{image}, #{dailyStock}, #{isLimited}, #{status})
     </insert>
 
     <update id="updateSelective">
@@ -104,6 +106,7 @@
             <if test="price != null">price = #{price},</if>
             <if test="image != null">image = #{image},</if>
             <if test="dailyStock != null">daily_stock = #{dailyStock},</if>
+            <if test="isLimited != null">is_limited = #{isLimited},</if>
             <if test="status != null">status = #{status},</if>
         </set>
         WHERE id = #{id}
@@ -125,6 +128,16 @@
         UPDATE dish
         SET sale_count = sale_count + #{quantity}
         WHERE id = #{id}
+    </update>
+
+    <!-- 退款回滚：补回限量菜库存 -->
+    <update id="increaseStock">
+        UPDATE dish SET daily_stock = daily_stock + #{quantity} WHERE id = #{id}
+    </update>
+
+    <!-- 退款回滚：扣回销量（不低于 0） -->
+    <update id="decreaseSaleCount">
+        UPDATE dish SET sale_count = GREATEST(sale_count - #{quantity}, 0) WHERE id = #{id}
     </update>
 
     <select id="selectDailyStock" resultType="int">

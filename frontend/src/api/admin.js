@@ -22,6 +22,10 @@ export const riderPendingOrders = (params) => request.get('/admin/rider/pending-
 export const riderAssign = (data) => request.post('/admin/rider/assign', data)                // { orderId, riderId }
 export const riderDeliver = (orderId) => request.post(`/admin/rider/${orderId}/deliver`)
 
+// AOP 操作日志（落库可追溯）
+export const operationLogs = (params) => request.get('/admin/logs', { params })
+export const operationLogsClear = () => request.delete('/admin/logs')
+
 // 全局统计
 export const statsOverview = () => request.get('/admin/stats/overview')
 export const statsStallRanking = () => request.get('/admin/stats/stall-ranking')

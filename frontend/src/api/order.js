@@ -3,6 +3,8 @@ import request from './request'
 // 订单（下单即钱包扣款，无独立支付接口）
 // data: { deliveryType: 0自取|1配送, couponId?: 用户领券记录ID, items: [{dishId, quantity}] }
 export const orderCreate = (data) => request.post('/order', data)
+// 跨档口原子批量下单：一次事务创建全部子单，任一失败全部回滚
+export const orderBatch = (data) => request.post('/order/batch', data)
 export const orderPage = (params) => request.get('/order/page', { params }) // { status?: 0/1/2, pageNum, pageSize }
 export const orderDetail = (id) => request.get(`/order/${id}`)
 export const orderCancel = (id) => request.post(`/order/${id}/cancel`)

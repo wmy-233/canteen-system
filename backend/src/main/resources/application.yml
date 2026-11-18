@@ -28,6 +28,10 @@ mybatis:
     map-underscore-to-camel-case: true   # 数据库下划线 -> Java 驼峰
     log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
 
+# 投诉超时自动升级阈值（小时）：商家超时未回应则升级给管理员
+complaint:
+  escalate-hours: 24
+
 canteen:
   jwt:
     # JWT 签名密钥（HS256 要求至少 32 字节；上线/考试环境示例，勿外传都是本地开发）

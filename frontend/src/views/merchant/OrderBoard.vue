@@ -7,6 +7,13 @@
       <el-tab-pane label="全部" name="all" />
     </el-tabs>
 
+    <div class="voice-bar">
+      <el-button size="small" :type="voiceOn ? 'success' : 'info'" plain @click="toggleVoice">
+        {{ voiceOn ? '🔊 新订单语音播报：开' : '🔇 新订单语音播报：关' }}
+      </el-button>
+      <span>每 15 秒检查新订单，忙的时候不用一直盯屏幕</span>
+    </div>
+
     <div v-loading="loading" class="order-list">
       <el-card v-for="o in orders" :key="o.id" shadow="never" class="order-card">
         <div class="o-head">
@@ -34,7 +41,7 @@
           <span class="o-pay">实收 <b>¥{{ fmt(o.payAmount) }}</b><template v-if="o.discountAmount > 0">（券减 ¥{{ fmt(o.discountAmount) }}）</template></span>
           <el-button
             v-if="o.status === 0 && o.deliveryType === 0"
-            type="primary" size="small" round @click="verify(o)"
+            type="primary" size="small" round @click="openScan(o)"
           >扫码核销 · 出餐</el-button>
           <el-tag v-if="o.status === 0 && o.deliveryType === 1" type="info" size="small" round>等待管理员分配骑手</el-tag>
         </div>
@@ -46,12 +53,27 @@
       v-model:current-page="pageNum" :page-size="pageSize" :total="total"
       layout="prev, pager, next" background class="pager" @current-change="load"
     />
+
+    <!-- 扫码核销：扫码枪输入或手动粘贴二维码内容 -->
+    <el-dialog v-model="scanVisible" title="📷 扫码核销出餐" width="440px">
+      <div class="scan-box">
+        <div class="scan-hint">请用扫码枪扫描学生订单页的二维码，或粘贴二维码内容</div>
+        <el-input v-model="scanInput" placeholder="CANTEEN|订单号|取餐码|过期时间戳" size="large" @keyup.enter="doVerify" />
+        <div class="scan-expect">本单订单号 <b>{{ scanOrder?.orderNo }}</b> · 取餐码 <b>{{ scanOrder?.pickupCode }}</b></div>
+        <el-alert v-if="scanError" :title="scanError" type="error" :closable="false" show-icon />
+        <div class="scan-tip">二维码 5 分钟自动刷新，过期需让学生重新出示</div>
+      </div>
+      <template #footer>
+        <el-button @click="scanVisible = false">取消</el-button>
+        <el-button type="primary" :loading="verifying" @click="doVerify">确认核销出餐</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { ElMessage } from 'element-plus'
 import { ORDER_STATUS } from '../../api/order'
 import { orderPage as merchantOrderPage, orderVerify } from '../../api/merchant'
 
@@ -80,18 +102,98 @@ async function load() {
   }
 }
 
-async function verify(o) {
-  await ElMessageBox.confirm(`确认核销订单 ${o.orderNo}？取餐码应为 ${o.pickupCode}。`, '出餐核销', { type: 'warning' })
-  await orderVerify(o.id)
-  ElMessage.success('核销完成，该单转已完成')
-  load()
+// ---------- 扫码核销（解析学生端带时效的二维码） ----------
+const scanVisible = ref(false)
+const scanOrder = ref(null)
+const scanInput = ref('')
+const scanError = ref('')
+const verifying = ref(false)
+
+function openScan(o) {
+  scanOrder.value = o
+  scanInput.value = ''
+  scanError.value = ''
+  scanVisible.value = true
 }
 
-onMounted(load)
+async function doVerify() {
+  scanError.value = ''
+  const parts = (scanInput.value || '').trim().split('|')
+  if (parts.length !== 4 || parts[0] !== 'CANTEEN') {
+    scanError.value = '二维码格式不正确，请重新扫描'
+    return
+  }
+  const [, orderNo, pickupCode, expire] = parts
+  if (Number(expire) < Date.now()) {
+    scanError.value = '二维码已过期，请让学生重新出示'
+    return
+  }
+  if (orderNo !== scanOrder.value?.orderNo || pickupCode !== scanOrder.value?.pickupCode) {
+    scanError.value = '订单号或取餐码与本单不匹配，核销失败'
+    return
+  }
+  verifying.value = true
+  try {
+    await orderVerify(scanOrder.value.id)
+    ElMessage.success('扫码核销成功，该单已完成 ✅')
+    scanVisible.value = false
+    load()
+  } finally {
+    verifying.value = false
+  }
+}
+
+// ---------- 新订单语音播报（浏览器 Web Speech API，无需后端） ----------
+const voiceOn = ref(true)
+let voiceTimer = null
+let lastPending = null
+
+function speak(text) {
+  if (!voiceOn.value || !('speechSynthesis' in window)) return
+  try {
+    const u = new SpeechSynthesisUtterance(text)
+    u.lang = 'zh-CN'
+    u.rate = 1.05
+    window.speechSynthesis.cancel()
+    window.speechSynthesis.speak(u)
+  } catch { /* 浏览器不支持时静默降级 */ }
+}
+
+function toggleVoice() {
+  voiceOn.value = !voiceOn.value
+  if (!voiceOn.value && 'speechSynthesis' in window) window.speechSynthesis.cancel()
+  ElMessage.info(voiceOn.value ? '已开启新订单语音播报' : '已关闭语音播报')
+}
+
+async function pollPending() {
+  try {
+    const res = await merchantOrderPage({ status: 0, pageNum: 1, pageSize: 1 })
+    const n = res.data?.total ?? 0
+    if (lastPending !== null && n > lastPending) {
+      speak(`你有 ${n - lastPending} 笔新订单，请尽快出餐`)
+    }
+    lastPending = n
+  } catch { /* 轮询失败忽略 */ }
+}
+
+onMounted(() => {
+  load()
+  pollPending()
+  voiceTimer = setInterval(pollPending, 15000)
+})
+onBeforeUnmount(() => {
+  if (voiceTimer) clearInterval(voiceTimer)
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel()
+})
 </script>
 
 <style scoped>
 .page { max-width: 1080px; margin: 0 auto; }
+.voice-bar { display: flex; align-items: center; gap: 10px; margin: -4px 0 12px; font-size: 12px; color: #9b9d84; }
+.scan-box { display: flex; flex-direction: column; gap: 12px; }
+.scan-hint, .scan-tip { font-size: 12px; color: #9b9d84; }
+.scan-expect { font-size: 13px; color: #5e5f4e; }
+.scan-expect b { color: #93977a; font-size: 15px; letter-spacing: 2px; }
 .order-list { display: flex; flex-direction: column; gap: 14px; min-height: 180px; }
 .order-card {
   border-radius: 14px;

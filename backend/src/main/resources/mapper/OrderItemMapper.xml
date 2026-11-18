@@ -4,15 +4,15 @@
 <mapper namespace="com.canteen.mapper.OrderItemMapper">
 
     <insert id="insertBatch">
-        INSERT INTO order_item (order_id, dish_id, dish_name, price, quantity)
+        INSERT INTO order_item (order_id, dish_id, dish_name, price, quantity, limited)
         VALUES
         <foreach collection="list" item="item" separator=",">
-            (#{item.orderId}, #{item.dishId}, #{item.dishName}, #{item.price}, #{item.quantity})
+            (#{item.orderId}, #{item.dishId}, #{item.dishName}, #{item.price}, #{item.quantity}, #{item.limited})
         </foreach>
     </insert>
 
     <select id="selectByOrderId" resultType="com.canteen.entity.OrderItem">
-        SELECT id, order_id, dish_id, dish_name, price, quantity
+        SELECT id, order_id, dish_id, dish_name, price, quantity, limited
         FROM order_item
         WHERE order_id = #{orderId}
     </select>

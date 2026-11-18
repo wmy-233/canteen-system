@@ -41,13 +41,15 @@
           </div>
           <div class="dish-bottom">
             <span class="dish-price">¥{{ fmt(d.price) }}</span>
-            <el-tag v-if="d.dailyStock > 0" :type="d.dailyStock <= 3 ? 'danger' : 'info'" size="small" round>
-              {{ d.dailyStock <= 3 ? `仅剩${d.dailyStock}份` : `今日${d.dailyStock}份` }}
+            <el-tag v-if="d.isLimited === 1 && d.dailyStock <= 0" type="danger" size="small" round>已售罄</el-tag>
+            <el-tag v-else-if="d.dailyStock > 0" :type="d.dailyStock <= 3 ? 'danger' : 'info'" size="small" round>
+              {{ d.dailyStock <= 3 ? `仅剩${d.dailyStock}份` : `今日剩${d.dailyStock}份` }}
             </el-tag>
-            <el-tag v-else size="small" type="success" round>供应中</el-tag>
+            <el-tag v-else size="small" type="info" round>不限量</el-tag>
           </div>
         </div>
-        <el-button class="add-btn" type="primary" size="small" round :disabled="d.status !== 1" @click.stop="add(d)">
+        <el-button class="add-btn" type="primary" size="small" round
+          :disabled="d.status !== 1 || (d.isLimited === 1 && d.dailyStock <= 0)" @click.stop="add(d)">
           ＋ 加购
         </el-button>
       </div>
@@ -108,7 +110,7 @@
           </div>
         </template>
         <el-alert v-if="cartGroups.length > 1" type="info" :closable="false"
-          :title="`跨档口下单会自动拆成 ${cartGroups.length} 笔订单分开结算`" />
+          :title="`跨档口将拆成 ${cartGroups.length} 笔订单，后台一个事务原子提交（任一失败全部回滚，不会付一半钱）`" />
         <el-empty v-if="!cartLoading && cart.length === 0" description="购物车空空的，快去加菜吧～" />
       </div>
       <template #footer>
@@ -138,7 +140,7 @@
           </el-select>
         </div>
         <el-alert v-if="cartGroups.length > 1" type="warning" :closable="false" style="margin-bottom:8px"
-          :title="`购物车含 ${cartGroups.length} 个档口：将按档口拆成 ${cartGroups.length} 笔订单分别扣款（${cartGroupNames}），优惠券需单档口订单才能使用`" />
+          :title="`购物车含 ${cartGroups.length} 个档口（${cartGroupNames}）：后台原子批量建单，任一档口售罄/余额不足则全部回滚；优惠券仅单档口可用`" />
         <el-alert v-else-if="usableCoupons.length === 0" type="info" :closable="false"
           title="暂无可用优惠券，可去「优惠券」页面领取" style="margin-bottom:8px" />
         <div v-for="g in cartGroups" :key="g.stallName" class="ck-group">
@@ -186,7 +188,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { canteenList, categoryList, stallList } from '../../api/basic'
 import { cartAdd, cartClear, cartList, cartRemove, cartUpdate, dishPage } from '../../api/dish'
 import { couponMine } from '../../api/coupon'
-import { orderCreate } from '../../api/order'
+import { orderBatch, orderCreate } from '../../api/order'
 
 const fmt = (v) => Number(v ?? 0).toFixed(2)
 
@@ -313,34 +315,36 @@ function openCheckout() {
 }
 
 /**
- * 按档口拆单提交：后端契约是一笔订单只能属于一个档口，
- * 跨档口时逐档口分别创建订单（每笔独立扣款/取餐码），
- * 某一笔失败（如档口售罄/余额不足）不影响其余订单，失败档口菜品保留在购物车。
+ * 跨档口原子批量下单：
+ * 单档口走原接口；多档口一次请求把全部子单交给后端同一个 @Transactional 处理，
+ * 任一档口售罄/余额不足 → 全部回滚（不会出现"A 成功 B 失败、钱付了一半"）。
  */
 async function submitOrder() {
   submitting.value = true
   orderResults.value = []
   failedGroups.value = []
   try {
-    for (const g of cartGroups.value) {
-      try {
-        const res = await orderCreate({
-          deliveryType: checkout.deliveryType,
-          couponId: cartGroups.value.length === 1 ? (checkout.couponId || undefined) : undefined,
-          items: g.items.map(i => ({ dishId: i.dishId, quantity: i.quantity }))
-        })
-        orderResults.value.push({ stallName: g.stallName, res: res.data })
-      } catch (e) {
-        failedGroups.value.push(g.stallName)
-      }
+    const builds = cartGroups.value.map(g => ({
+      deliveryType: checkout.deliveryType,
+      couponId: cartGroups.value.length === 1 ? (checkout.couponId || undefined) : undefined,
+      items: g.items.map(i => ({ dishId: i.dishId, quantity: i.quantity }))
+    }))
+    let list
+    if (builds.length === 1) {
+      const res = await orderCreate(builds[0])
+      list = [res.data]
+    } else {
+      const res = await orderBatch(builds)
+      list = res.data
     }
-    if (orderResults.value.length === 0) {
-      ElMessage.error('全部订单均未成功，请检查余额或库存后重试')
-      return
-    }
+    list.forEach((r, i) => orderResults.value.push({ stallName: cartGroups.value[i].stallName, res: r }))
     checkoutVisible.value = false
     doneVisible.value = true
     await refreshCart()
+  } catch (e) {
+    // 批量接口已保证事务原子性：失败时没有任何子单落库，购物车保留
+    failedGroups.value = cartGroups.value.map(g => g.stallName)
+    ElMessage.error('下单失败：已回滚全部子单，款项未扣除。请检查余额或菜品库存后重试')
   } finally {
     submitting.value = false
   }

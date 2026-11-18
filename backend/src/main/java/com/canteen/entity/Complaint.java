@@ -19,6 +19,8 @@ public class Complaint {
     private Integer type;
     private String content;
     private Integer status;
+    /** 是否因商家超时未回应升级给管理员 */
+    private Integer escalated;
     private String reply;
     private LocalDateTime replyTime;
     private String verdict;

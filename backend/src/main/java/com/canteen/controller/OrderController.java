@@ -19,6 +19,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 /**
  * 学生端订单（FR-STU-04 下单 / 我的订单 / 取消）
  */
@@ -35,6 +37,13 @@ public class OrderController {
     @PostMapping
     public Result<OrderCreateVO> create(@Validated @RequestBody OrderCreateDTO dto) {
         return Result.success(orderService.create(dto));
+    }
+
+    @Operation(summary = "跨档口批量下单：一个事务创建全部子单，任一失败全部回滚")
+    @OpLog(module = "订单", action = "批量下单")
+    @PostMapping("/batch")
+    public Result<List<OrderCreateVO>> batch(@Validated @RequestBody List<OrderCreateDTO> dtos) {
+        return Result.success(orderService.createBatch(dtos));
     }
 
     @Operation(summary = "我的订单列表（status 0待处理 1已完成 2已取消，null 全部）")

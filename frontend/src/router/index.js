@@ -5,7 +5,8 @@ import { useUserStore } from '../stores/user'
 export const ROLE_HOME = {
   STUDENT: '/student',
   MERCHANT: '/merchant',
-  ADMIN: '/admin'
+  ADMIN: '/admin',
+  RIDER: '/rider'
 }
 
 const placeholder = (title) => ({ component: () => import('../views/Placeholder.vue'), props: { title } })
@@ -45,6 +46,18 @@ const routes = [
     ]
   },
 
+  // ---- 骑手端（自主抢单 + 管理员兜底派单） ----
+  {
+    path: '/rider',
+    component: () => import('../layouts/FrameLayout.vue'),
+    meta: { roles: ['RIDER'] },
+    children: [
+      { path: '', component: () => import('../views/rider/Dashboard.vue') },
+      { path: 'orders', component: () => import('../views/rider/MyOrders.vue') },
+      { path: 'messages', component: () => import('../views/common/MessageCenter.vue') }
+    ]
+  },
+
   // ---- 管理端 ----
   {
     path: '/admin',
@@ -57,6 +70,7 @@ const routes = [
       { path: 'riders', component: () => import('../views/admin/Riders.vue') },
       { path: 'coupons', component: () => import('../views/admin/Coupons.vue') },
       { path: 'stats', component: () => import('../views/admin/Stats.vue') },
+      { path: 'logs', component: () => import('../views/admin/Logs.vue') },
       { path: 'complaints', component: () => import('../views/admin/Complaints.vue') },
       { path: 'messages', component: () => import('../views/common/MessageCenter.vue') }
     ]

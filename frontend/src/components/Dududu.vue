@@ -152,8 +152,9 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '../stores/user'
-import { cartAdd, dishPage, dishHot } from '../api/dish'
+import { cartAdd, cartList, dishPage, dishHot } from '../api/dish'
 import { walletInfo } from '../api/wallet'
+import { orderPage, ORDER_STATUS, DELIVERY_STATUS } from '../api/order'
 
 const chatOpen = ref(false)
 const histOpen = ref(false)
@@ -391,6 +392,8 @@ const SYSTEM_PROMPT = [
   '支持 Markdown：适当用 **加粗** 强调菜名/金额。',
   '推荐菜品时尽量点名具体菜品（系统会自动渲染菜品卡片）。',
   '系统里有川湘家常菜、兰州拉面、麻辣香锅三个档口，菜品如宫保鸡丁、红烧排骨、麻婆豆腐、牛肉拉面、羊肉泡馍、麻辣香锅、酸梅汤、冰粉等。',
+  '你拥有真实业务工具（Function Calling）：可以调用 get_wallet_balance 查余额、get_my_orders 查订单、get_cart 查购物车、get_hot_dishes 查热销、add_to_cart 加购。',
+  '当用户问余额/订单/购物车/热销/加购时，必须调用对应工具拿真实数据后再回答，禁止编造数字；工具返回什么就照实说什么。',
   '涉及余额/订单状态等个人数据时，若下方有【实时数据】就直接引用具体数字；没有就提醒用户去「我的钱包」「我的订单」页面查看。',
   '与食堂、吃饭、学习生活无关的敏感话题请礼貌带回到吃饭话题。'
 ].join('\n')
@@ -431,25 +434,82 @@ function replyOf(q) {
   return '这个问题有点超出我圆滚滚的脑容量了 😥 不过吃饭的事我都懂，要不要我帮你推荐几个菜？'
 }
 
-async function askDeepSeek(history) {
+// ================= 真·Function Calling：让 AI 调用真实业务接口 =================
+const TOOLS = [
+  { type: 'function', function: { name: 'get_wallet_balance', description: '查询当前登录学生的校园卡钱包余额', parameters: { type: 'object', properties: {} } } },
+  { type: 'function', function: { name: 'get_my_orders', description: '查询我的订单列表及状态、取餐码、骑手信息', parameters: { type: 'object', properties: { status: { type: 'string', description: '0待处理 1已完成 2已取消；不传表示查全部' } } } } },
+  { type: 'function', function: { name: 'get_cart', description: '查看当前购物车里的菜品与数量', parameters: { type: 'object', properties: {} } } },
+  { type: 'function', function: { name: 'get_hot_dishes', description: '查询今日热销菜排行榜（今日特价/热门菜）', parameters: { type: 'object', properties: {} } } },
+  { type: 'function', function: { name: 'add_to_cart', description: '把指定菜品加入购物车', parameters: { type: 'object', properties: { dishId: { type: 'integer', description: '菜品ID' }, quantity: { type: 'integer', description: '数量，默认1' } }, required: ['dishId'] } } }
+]
+
+async function callTool(name, args) {
+  try {
+    if (name === 'get_wallet_balance') {
+      if (userStore.role !== 'STUDENT') return { error: '仅学生用户可查询钱包余额' }
+      const w = await walletInfo()
+      lastBalance = w.data?.balance
+      return { balance: w.data?.balance, message: '查询成功' }
+    }
+    if (name === 'get_my_orders') {
+      if (userStore.role !== 'STUDENT') return { error: '仅学生用户可查询订单' }
+      const r = await orderPage({ pageNum: 1, pageSize: 10, status: args.status == null ? undefined : Number(args.status) })
+      return { orders: (r.data?.list || []).map(o => ({
+        orderNo: o.orderNo, stallName: o.stallName, status: ORDER_STATUS[o.status],
+        payAmount: o.payAmount, pickupCode: o.pickupCode,
+        deliveryStatus: o.deliveryStatus == null ? null : DELIVERY_STATUS[o.deliveryStatus],
+        riderName: o.riderName
+      })) }
+    }
+    if (name === 'get_cart') {
+      if (userStore.role !== 'STUDENT') return { error: '仅学生用户可查询购物车' }
+      const r = await cartList()
+      return { items: (r.data || []).map(i => ({ name: i.dishName, quantity: i.quantity, price: i.price })) }
+    }
+    if (name === 'get_hot_dishes') {
+      const h = await dishHot()
+      const list = Array.isArray(h?.data) ? h.data : (h?.data?.list || [])
+      return { hotDishes: list.slice(0, 8).map(d => ({ name: d.name, saleCount: d.saleCount, price: d.price, id: d.id })) }
+    }
+    if (name === 'add_to_cart') {
+      if (userStore.role !== 'STUDENT') return { error: '仅学生用户可加购' }
+      const dishId = Number(args.dishId)
+      const quantity = Number(args.quantity || 1)
+      const dish = dishIndex.value.find(d => d.id === dishId)
+      await cartAdd({ dishId, quantity })
+      ElMessage.success(`嘟嘟已帮你把「${dish?.name || '菜品'}」加入购物车 🛒`)
+      return { success: true, dishName: dish?.name, quantity }
+    }
+    return { error: '暂不支持的工具: ' + name }
+  } catch (e) {
+    return { error: e?.message || '工具调用失败' }
+  }
+}
+
+async function askDeepSeek(history, withTools = false) {
+  const body = {
+    model: 'deepseek-chat',
+    messages: history,
+    max_tokens: 320,
+    temperature: 1.1
+  }
+  if (withTools) {
+    body.tools = TOOLS
+    body.tool_choice = 'auto'
+  }
   const res = await fetch('https://api.deepseek.com/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${DS_KEY}`
     },
-    body: JSON.stringify({
-      model: 'deepseek-chat',
-      messages: history,
-      max_tokens: 260,
-      temperature: 1.1
-    })
+    body: JSON.stringify(body)
   })
   if (!res.ok) throw new Error('deepseek http ' + res.status)
   const j = await res.json()
-  const text = j?.choices?.[0]?.message?.content?.trim()
-  if (!text) throw new Error('empty reply')
-  return text
+  const msg = j?.choices?.[0]?.message
+  if (!msg) throw new Error('empty reply')
+  return { content: (msg.content || '').trim(), toolCalls: msg.tool_calls || [] }
 }
 
 // 根据用户第一句提问智能命名
@@ -526,17 +586,35 @@ async function ask(text) {
 
   if (!DS_KEY) { finish(replyOf(text)); return }
 
-  askDeepSeek(history)
-    .then(answer => {
-      if (s) {
-        s.seek = [...history.filter(m => !(m.role === 'system' && m.content.startsWith('【实时数据】'))),
-          { role: 'assistant', content: answer }].slice(-20)
-        s.seek = [{ role: 'system', content: SYSTEM_PROMPT }, ...s.seek.filter(m => m.role !== 'system')]
-        persist()
+  ;(async () => {
+    // 第一轮：带 tools 让模型决定是否调用业务接口
+    const first = await askDeepSeek(history, true)
+    let answer = first.content
+
+    if (first.toolCalls.length) {
+      // 第二轮：执行工具 → 把结果以 role=tool 回传 → 让模型基于真实数据生成最终回复
+      const withToolMsgs = [
+        ...history,
+        { role: 'assistant', content: first.content || '', tool_calls: first.toolCalls }
+      ]
+      for (const call of first.toolCalls) {
+        let args = {}
+        try { args = JSON.parse(call.function?.arguments || '{}') } catch { }
+        const result = await callTool(call.function?.name, args)
+        withToolMsgs.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(result) })
       }
-      finish(answer)
-    })
-    .catch(() => finish(replyOf(text)))
+      const second = await askDeepSeek(withToolMsgs, false)
+      answer = second.content || '已经帮你查好啦～'
+    }
+
+    if (s) {
+      s.seek = [...history.filter(m => !(m.role === 'system' && m.content.startsWith('【实时数据】'))),
+        { role: 'assistant', content: answer }].slice(-20)
+      s.seek = [{ role: 'system', content: SYSTEM_PROMPT }, ...s.seek.filter(m => m.role !== 'system')]
+      persist()
+    }
+    finish(answer)
+  })().catch(() => finish(replyOf(text)))
 }
 
 function send() {

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.canteen.mapper.SysOperationLogMapper">
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO sys_operation_log
+            (operator, module, action, method, params, cost_ms, success, error)
+        VALUES
+            (#{operator}, #{module}, #{action}, #{method}, #{params}, #{costMs}, #{success}, #{error})
+    </insert>
+
+    <select id="selectPage" resultType="com.canteen.entity.SysOperationLog">
+        SELECT id, operator, module, action, method, params, cost_ms, success, error, create_time
+        FROM sys_operation_log
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (operator LIKE CONCAT('%', #{keyword}, '%') OR action LIKE CONCAT('%', #{keyword}, '%')
+                     OR params LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="module != null and module != ''">AND module = #{module}</if>
+            <if test="success != null">AND success = #{success}</if>
+        </where>
+        ORDER BY create_time DESC, id DESC
+        LIMIT 300
+    </select>
+
+    <delete id="deleteAll">
+        DELETE FROM sys_operation_log
+    </delete>
+
+</mapper>

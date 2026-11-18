@@ -38,6 +38,13 @@ public class AdminComplaintController {
         return Result.success(complaintMapper.selectAll(status));
     }
 
+    @Operation(summary = "手动升级超时投诉（演示开关：商家未回应时立即升级给管理员）")
+    @PostMapping("/{id}/escalate")
+    public Result<Void> escalate(@PathVariable Long id) {
+        complaintService.escalateOne(id);
+        return Result.success();
+    }
+
     @Operation(summary = "裁定投诉 { pass, content, refund(true=全额退款) }")
     @PostMapping("/{id}/resolve")
     public Result<Void> resolve(@PathVariable Long id, @Validated @RequestBody ComplaintResolveDTO dto) {

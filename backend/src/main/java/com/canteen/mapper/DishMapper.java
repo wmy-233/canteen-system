@@ -43,6 +43,10 @@ public interface DishMapper {
 
     /** 成功下单后销量累加 */
     int increaseSaleCount(@Param("id") Long id, @Param("quantity") Integer quantity);
+    /** 退款回滚：补回限量菜库存（仅 limited 菜调用） */
+    int increaseStock(@Param("id") Long id, @Param("quantity") Integer quantity);
+    /** 退款回滚：扣回销量 */
+    int decreaseSaleCount(@Param("id") Long id, @Param("quantity") Integer quantity);
 
     /** 查当前每日限量（Redis 降级/初始化用） */
     Integer selectDailyStock(@Param("id") Long id);

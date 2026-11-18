@@ -89,7 +89,8 @@ CREATE TABLE IF NOT EXISTS `dish` (
     `description`  VARCHAR(255) COMMENT '描述',
     `price`        DECIMAL(8,2) NOT NULL COMMENT '价格',
     `image`        VARCHAR(255) COMMENT '图片URL',
-    `daily_stock`  INT NOT NULL DEFAULT 0 COMMENT '每日限量数(0不限量)',
+    `daily_stock`  INT NOT NULL DEFAULT 0 COMMENT '每日剩余限量数',
+    `is_limited`   TINYINT NOT NULL DEFAULT 0 COMMENT '1限量菜 0不限量（区分卖完与不限量）',
     `sale_count`   INT NOT NULL DEFAULT 0 COMMENT '累计销量',
     `status`       TINYINT NOT NULL DEFAULT 1 COMMENT '0下架 1上架',
     `create_time`  DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -115,6 +116,8 @@ CREATE TABLE IF NOT EXISTS `order_info` (
     `total_amount`    DECIMAL(10,2) NOT NULL COMMENT '总金额',
     `discount_amount` DECIMAL(10,2) NOT NULL DEFAULT 0 COMMENT '优惠金额',
     `pay_amount`      DECIMAL(10,2) NOT NULL COMMENT '实付金额',
+    `user_coupon_id`  BIGINT NULL COMMENT '下单核销的 user_coupon 记录ID（精确退券）',
+    `batch_no`        VARCHAR(64) NULL COMMENT '批量下单批次号（跨档口原子下单）',
     `pickup_code`     VARCHAR(8) NOT NULL COMMENT '取餐码',
     `status`          TINYINT NOT NULL DEFAULT 0 COMMENT '0待取餐 1已完成 2已取消',
     `create_time`     DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -130,7 +133,8 @@ CREATE TABLE IF NOT EXISTS `order_item` (
     `dish_id`   BIGINT NOT NULL,
     `dish_name` VARCHAR(50) NOT NULL COMMENT '菜名快照',
     `price`     DECIMAL(8,2) NOT NULL COMMENT '价格快照',
-    `quantity`  INT NOT NULL DEFAULT 1
+    `quantity`  INT NOT NULL DEFAULT 1,
+    `limited`   TINYINT NOT NULL DEFAULT 0 COMMENT '下单时是否限量菜（决定退款是否补库存）'
 ) ENGINE=InnoDB COMMENT='订单明细';
 
 -- 优惠券

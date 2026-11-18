@@ -1,6 +1,8 @@
 package com.canteen.aspect;
 
-import com.canteen.security.LoginUser;
+import com.canteen.entity.SysOperationLog;
+import com.canteen.mapper.SysOperationLogMapper;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
@@ -12,16 +14,18 @@ import org.springframework.stereotype.Component;
 import java.util.Arrays;
 
 /**
- * 操作日志切面（组员 C 维护）：凡标注 @OpLog 的方法自动记录
- * 输出到 logs/canteen.log（logback 按天滚动 + 错误单独文件），满足作业日志框架要求
- *
- * 记录内容：模块 / 操作 / 操作人 / 方法 / 参数(截断) / 耗时 / 成功或失败原因
- * 注意：DTO 的密码字段已加 @ToString.Exclude，不会明文进日志
+ * @OpLog 操作日志切面：
+ * 1) 写文件（logback）——排障用
+ * 2) 落库 sys_operation_log——管理端可查询，体现系统可追溯性
+ * 日志失败一律吞异常，绝不影响业务主流程。
  */
 @Slf4j
 @Aspect
 @Component
+@RequiredArgsConstructor
 public class LogAspect {
+
+    private final SysOperationLogMapper operationLogMapper;
 
     @Around("@annotation(opLog)")
     public Object around(ProceedingJoinPoint joinPoint, OpLog opLog) throws Throwable {
@@ -32,27 +36,43 @@ public class LogAspect {
         try {
             Object result = joinPoint.proceed();
             log.info("[操作日志] 模块={}, 操作={}, 操作人={}, 方法={}, 参数={}, 耗时={}ms, 结果=成功",
-                    opLog.module(), opLog.action(), operator, method, args,
-                    System.currentTimeMillis() - start);
+                    opLog.module(), opLog.action(), operator, method, args, System.currentTimeMillis() - start);
+            save(opLog, operator, method, args, System.currentTimeMillis() - start, true, "");
             return result;
         } catch (Throwable e) {
             log.error("[操作日志] 模块={}, 操作={}, 操作人={}, 方法={}, 参数={}, 耗时={}ms, 结果=失败({})",
-                    opLog.module(), opLog.action(), operator, method, args,
-                    System.currentTimeMillis() - start, e.getMessage());
+                    opLog.module(), opLog.action(), operator, method, args, System.currentTimeMillis() - start, e.getMessage());
+            save(opLog, operator, method, args, System.currentTimeMillis() - start, false, e.getMessage());
             throw e;
         }
     }
 
-    /** 未登录场景（如注册）操作人显示"匿名" */
+    private void save(OpLog opLog, String operator, String method, String args,
+                      long cost, boolean success, String error) {
+        try {
+            SysOperationLog record = new SysOperationLog();
+            record.setOperator(operator);
+            record.setModule(opLog.module());
+            record.setAction(opLog.action() == null ? "" : opLog.action());
+            record.setMethod(method.length() > 200 ? method.substring(0, 200) : method);
+            record.setParams(args);
+            record.setCostMs((int) cost);
+            record.setSuccess(success ? 1 : 0);
+            record.setError(error == null ? "" : (error.length() > 300 ? error.substring(0, 300) : error));
+            operationLogMapper.insert(record);
+        } catch (Exception e) {
+            log.warn("操作日志落库失败（不影响业务）: {}", e.getMessage());
+        }
+    }
+
     private String currentUsername() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.getPrincipal() instanceof LoginUser) {
-            return ((LoginUser) authentication.getPrincipal()).getUsername();
+        if (authentication != null && authentication.getPrincipal() instanceof com.canteen.security.LoginUser) {
+            return ((com.canteen.security.LoginUser) authentication.getPrincipal()).getUsername();
         }
         return "匿名";
     }
 
-    /** 参数过长截断，避免日志爆炸 */
     private String abbreviate(String args) {
         return args.length() > 300 ? args.substring(0, 300) + "...(截断)" : args;
     }

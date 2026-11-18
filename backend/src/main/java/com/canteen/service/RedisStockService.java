@@ -66,7 +66,7 @@ public class RedisStockService {
             return;
         }
         try {
-            atomicLong(KEY_PREFIX + dishId).incrementAndGet();
+            atomicLong(KEY_PREFIX + dishId).addAndGet(quantity == null ? 1 : quantity.longValue());
         } catch (Exception e) {
             log.warn("Redis 库存补偿失败: dishId={}, 原因: {}", dishId, e.getMessage());
         }

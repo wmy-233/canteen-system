@@ -30,15 +30,16 @@
     <insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
         INSERT INTO order_info
             (order_no, user_id, stall_id, total_amount, discount_amount, pay_amount,
-             pickup_code, status, delivery_type, rider_id, delivery_status)
+             user_coupon_id, batch_no, pickup_code, status, delivery_type, rider_id, delivery_status)
         VALUES
             (#{orderNo}, #{userId}, #{stallId}, #{totalAmount}, #{discountAmount}, #{payAmount},
-             #{pickupCode}, #{status}, #{deliveryType}, #{riderId}, #{deliveryStatus})
+             #{userCouponId}, #{batchNo}, #{pickupCode}, #{status}, #{deliveryType}, #{riderId}, #{deliveryStatus})
     </insert>
 
     <select id="selectById" resultType="com.canteen.entity.OrderInfo">
         SELECT id, order_no, user_id, stall_id, total_amount, discount_amount, pay_amount,
-               pickup_code, status, delivery_type, rider_id, delivery_status, create_time, update_time
+               user_coupon_id, batch_no, pickup_code, status, delivery_type, rider_id, delivery_status,
+               create_time, update_time
         FROM order_info
         WHERE id = #{id}
         LIMIT 1
@@ -107,5 +108,17 @@
         SET delivery_status = 2, status = 1
         WHERE id = #{id} AND delivery_status = 1 AND status = 0
     </update>
+
+    <!-- 投诉成立退款：置为已退款，防止重复退款 -->
+    <update id="markRefunded">
+        UPDATE order_info SET status = 2 WHERE id = #{id} AND status IN (0, 1)
+    </update>
+
+    <!-- 骑手端：我的配送单（含已送达） -->
+    <select id="selectMyDelivery" resultType="com.canteen.vo.OrderVO">
+        <include refid="orderVoSelect"/>
+        WHERE o.delivery_type = 1 AND o.rider_id = #{riderId}
+        ORDER BY o.delivery_status ASC, o.create_time DESC
+    </select>
 
 </mapper>

@@ -5,6 +5,8 @@ import com.canteen.dto.OrderCreateDTO;
 import com.canteen.vo.OrderCreateVO;
 import com.canteen.vo.OrderVO;
 
+import java.util.List;
+
 /**
  * 订单业务：下单主链（FR-STU-04）、防超卖（FR-STU-05）、订单流转（FR-MER-03）
  */
@@ -14,6 +16,12 @@ public interface OrderService {
      * ★下单主链（A4）：校验→算价→选券→Redis 预减→分布式锁→事务建单（快照+取餐码+扣款+流水+券核销+销量+热销榜）
      */
     OrderCreateVO create(OrderCreateDTO dto);
+
+    /**
+     * ★跨档口原子批量下单：多个子单共用一个事务，任一失败全部回滚。
+     * 消除前端逐单提交导致"部分成功、钱付了一半"的一致性问题。
+     */
+    List<OrderCreateVO> createBatch(List<OrderCreateDTO> dtos);
 
     /** 学生端我的订单（按状态筛选） */
     PageResult<OrderVO> myOrders(Integer status, Integer pageNum, Integer pageSize);

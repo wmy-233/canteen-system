@@ -34,8 +34,11 @@ public class DishVO {
 
     private String image;
 
-    /** 每日限量数（0 不限量） */
+    /** 每日剩余限量数 */
     private Integer dailyStock;
+
+    /** 1限量菜 0不限量（卖完后 daily_stock=0 但 is_limited 仍为 1） */
+    private Integer isLimited;
 
     private Integer saleCount;
 

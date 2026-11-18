@@ -92,7 +92,10 @@ public class DishServiceImpl implements DishService {
         dish.setDescription(dto.getDescription());
         dish.setPrice(dto.getPrice());
         dish.setImage(dto.getImage());
-        dish.setDailyStock(dto.getDailyStock() == null ? 0 : dto.getDailyStock());
+        int dailyStock = dto.getDailyStock() == null ? 0 : dto.getDailyStock();
+        dish.setDailyStock(dailyStock);
+        // 限量标记独立保存：否则限量菜卖完后 daily_stock=0 会被误判为"不限量"
+        dish.setIsLimited(dailyStock > 0 ? 1 : 0);
         dish.setStatus(dto.getStatus() == null ? 1 : dto.getStatus());
         if (dto.getId() == null) {
             dishMapper.insert(dish);

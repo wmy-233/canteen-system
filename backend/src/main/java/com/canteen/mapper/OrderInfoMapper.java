@@ -42,4 +42,10 @@ public interface OrderInfoMapper {
 
     /** 标记送达：1配送中 -> 2已送达 且订单置已完成；返回 0 即非法流转 */
     int markDelivered(@Param("id") Long id);
+
+    /** 投诉成立退款：任意未完成状态 -> 2已退款/取消（防止重复退款） */
+    int markRefunded(@Param("id") Long id);
+
+    /** 骑手端：我接的配送单 */
+    List<OrderVO> selectMyDelivery(@Param("riderId") Long riderId);
 }

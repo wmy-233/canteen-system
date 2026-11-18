@@ -31,4 +31,10 @@ public interface ComplaintMapper {
     int updateVerdict(@Param("id") Long id, @Param("verdict") String verdict,
                       @Param("result") Integer result, @Param("refundAmount") java.math.BigDecimal refundAmount,
                       @Param("adminId") Long adminId);
+
+    /** 超时未回应的待处理投诉（商家超过 N 小时未理睬） */
+    List<Complaint> selectEscalationCandidates(@Param("hours") Integer hours);
+
+    /** 标记已升级（幂等，避免重复通知） */
+    int markEscalated(@Param("id") Long id);
 }

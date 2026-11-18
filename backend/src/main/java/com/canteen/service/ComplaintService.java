@@ -34,6 +34,7 @@ public class ComplaintService {
     private final StallMapper stallMapper;
     private final com.canteen.mapper.UserMapper userMapper;
     private final com.canteen.mapper.WalletRecordMapper walletRecordMapper;
+    private final OrderTxService orderTxService;
     private final MessageSender messages;
 
     // ---------------- 学生 ----------------
@@ -152,6 +153,10 @@ public class ComplaintService {
                     rec.setAmount(refundAmount);
                     rec.setRefOrderNo(orderNo);
                     walletRecordMapper.insert(rec);
+
+                    // 高分增强：投诉成立退款同样回滚库存/销量/券/Redis 余量，并关闭订单防止重复退款
+                    orderTxService.rollbackOrderEffects(order);
+                    orderInfoMapper.markRefunded(order.getId());
                 }
             }
         }
@@ -180,6 +185,46 @@ public class ComplaintService {
                     MessageSender.TYPE_COMPLAINT);
         }
         log.info("投诉裁定: complaintId={}, result={}, refund={}", complaintId, pass, refundAmount);
+    }
+
+    // ---------------- 超时自动升级（定时器 + 管理端手动触发共用） ----------------
+
+    /** 扫描商家超过 hours 小时仍未回应的投诉，升级给管理员并通知学生 */
+    public int escalateOverdue(Integer hours) {
+        List<Complaint> list = complaintMapper.selectEscalationCandidates(hours);
+        int count = 0;
+        for (Complaint c : list) {
+            if (markEscalated(c)) count++;
+        }
+        if (count > 0) {
+            log.info("投诉超时自动升级: {} 条（阈值 {} 小时）", count, hours);
+        }
+        return count;
+    }
+
+    /** 管理端手动升级（演示开关）：立即把待处理工单标记为超时升级 */
+    public void escalateOne(Long complaintId) {
+        Complaint c = complaintMapper.selectById(complaintId);
+        if (c == null) throw new BizException("投诉不存在");
+        if (!Integer.valueOf(0).equals(c.getStatus())) {
+            throw new BizException("仅待处理的投诉可手动升级");
+        }
+        markEscalated(c);
+    }
+
+    private boolean markEscalated(Complaint c) {
+        if (complaintMapper.markEscalated(c.getId()) == 0) return false;   // 幂等
+        OrderInfo order = orderInfoMapper.selectById(c.getOrderId());
+        String orderNo = order != null ? order.getOrderNo() : ("#" + c.getOrderId());
+        Stall stall = stallMapper.selectById(c.getStallId());
+        String stallName = stall != null ? stall.getName() : ("档口#" + c.getStallId());
+        messages.sendToRole("ADMIN", "⚠️ 投诉超时升级",
+                "订单 " + orderNo + "（" + stallName + "）的投诉商家超时未回应，请管理员直接裁定",
+                MessageSender.TYPE_COMPLAINT);
+        messages.send(c.getStudentUserId(), "投诉已升级处理",
+                "你对订单 " + orderNo + " 的投诉因商家超时未回应，已升级至管理员处理，请耐心等待裁定",
+                MessageSender.TYPE_COMPLAINT);
+        return true;
     }
 
     /** 数据权限：商家只能操作本档口的投诉 */

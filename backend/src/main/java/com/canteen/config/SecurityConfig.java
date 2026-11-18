@@ -57,6 +57,7 @@ public class SecurityConfig {
                 // 管理端仅 ADMIN，商家端仅 MERCHANT
                 .antMatchers("/api/admin/**").hasRole("ADMIN")
                 .antMatchers("/api/merchant/**").hasRole("MERCHANT")
+                .antMatchers("/api/rider/**").hasRole("RIDER")
                 // 其余接口登录即可
                 .anyRequest().authenticated()
             .and()

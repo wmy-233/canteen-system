@@ -66,4 +66,16 @@
         WHERE id = #{id} AND status IN (0, 1)
     </update>
 
+    <!-- 超时未回应：仅待处理且未升级过的工单 -->
+    <select id="selectEscalationCandidates" resultType="com.canteen.entity.Complaint">
+        SELECT * FROM complaint
+        WHERE status = 0 AND escalated = 0
+          AND create_time &lt; DATE_SUB(NOW(), INTERVAL #{hours} HOUR)
+        ORDER BY create_time ASC
+    </select>
+
+    <update id="markEscalated">
+        UPDATE complaint SET escalated = 1 WHERE id = #{id} AND escalated = 0
+    </update>
+
 </mapper>

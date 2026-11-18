@@ -14,3 +14,4 @@ export const complaintReply = (id, data) => request.post(`/merchant/complaint/${
 // ---- 管理端（/api/admin/**）----
 export const complaintAdminList = (params) => request.get('/admin/complaint/list', { params })
 export const complaintResolve = (id, data) => request.post(`/admin/complaint/${id}/resolve`, data) // { pass, content, refund }
+export const complaintEscalate = (id) => request.post(`/admin/complaint/${id}/escalate`) // 手动标记超时升级

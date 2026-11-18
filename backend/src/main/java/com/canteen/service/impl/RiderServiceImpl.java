@@ -154,6 +154,70 @@ public class RiderServiceImpl implements RiderService {
         log.info("配送送达: orderId={}", orderId);
     }
 
+    // ---------------- 骑手端自主接单 ----------------
+
+    @Override
+    public RiderVO me(Long userId) {
+        Rider rider = riderMapper.selectByUserId(userId);
+        if (rider == null) {
+            throw new BizException("当前账号未绑定骑手档案，请联系管理员");
+        }
+        RiderVO vo = new RiderVO();
+        vo.setId(rider.getId());
+        vo.setUserId(rider.getUserId());
+        vo.setName(rider.getName());
+        vo.setPhone(rider.getPhone());
+        vo.setStatus(rider.getStatus());
+        vo.setCreateTime(rider.getCreateTime());
+        User user = userMapper.selectById(userId);
+        if (user != null) vo.setUsername(user.getUsername());
+        return vo;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void grab(Long riderId, Long orderId) {
+        Rider rider = riderMapper.selectById(riderId);
+        if (rider == null || !Integer.valueOf(1).equals(rider.getStatus())) {
+            throw new BizException("骑手不在岗，无法抢单");
+        }
+        // 与管理员派单共用同一条件更新：WHERE delivery_status=0 AND status=0
+        // 多个骑手同时抢一单时，只有第一个 UPDATE 影响行数为 1，天然先到先得。
+        int rows = orderInfoMapper.assignRider(orderId, riderId);
+        if (rows == 0) {
+            checkOrderExists(orderId);
+            throw new BizException("手慢了，该单已被其他骑手抢走");
+        }
+        OrderInfo order = orderInfoMapper.selectById(orderId);
+        messageSender.send(order.getUserId(), "你的外卖开始配送 🛵",
+                "订单 " + order.getOrderNo() + " 已被骑手「" + rider.getName() + "」抢单，正在为你配送"
+                        + (rider.getPhone() != null ? "，联系方式 " + rider.getPhone() : ""),
+                com.canteen.common.MessageSender.TYPE_DELIVERY);
+        log.info("骑手抢单成功: orderId={}, riderId={}", orderId, riderId);
+    }
+
+    @Override
+    public List<OrderVO> myOrders(Long riderId) {
+        return orderInfoMapper.selectMyDelivery(riderId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deliverMine(Long riderId, Long orderId) {
+        OrderInfo order = orderInfoMapper.selectById(orderId);
+        if (order == null || !riderId.equals(order.getRiderId())) {
+            throw new BizException("只能完成自己接的配送单");
+        }
+        int rows = orderInfoMapper.markDelivered(orderId);
+        if (rows == 0) {
+            throw new BizException("仅配送中的订单可标记送达");
+        }
+        messageSender.send(order.getUserId(), "配送已完成 🎉",
+                "订单 " + order.getOrderNo() + " 已送达，祝用餐愉快！如遇问题可对该订单发起投诉",
+                com.canteen.common.MessageSender.TYPE_DELIVERY);
+        log.info("骑手完成配送: orderId={}, riderId={}", orderId, riderId);
+    }
+
     private void checkOrderExists(Long orderId) {
         if (orderInfoMapper.selectById(orderId) == null) {
             throw new BizException("订单不存在");

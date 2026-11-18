@@ -37,6 +37,7 @@
           </div>
           <div class="o-ops">
             <span class="o-pay">实付 <b>¥{{ fmt(o.payAmount) }}</b></span>
+            <el-button v-if="o.status === 0 && o.deliveryType === 0" size="small" round @click="openQr(o)">出示二维码</el-button>
             <el-button v-if="o.status === 0" size="small" type="danger" round plain @click="cancel(o)">取消订单</el-button>
             <el-button v-if="o.status === 1 && o.items?.length" size="small" round @click="openReview(o)">评价</el-button>
             <el-button size="small" round plain type="warning" @click="openComplaint(o)">投诉</el-button>
@@ -94,6 +95,17 @@
         <el-button type="primary" :loading="reviewing" :disabled="allScoresZero" @click="submitReview">提交评价</el-button>
       </template>
     </el-dialog>
+
+    <!-- 取餐二维码（带时效，商家扫码核销） -->
+    <el-dialog v-model="qrVisible" title="📱 出示二维码取餐" width="360px" @closed="stopQrTimer">
+      <div class="qr-wrap">
+        <img v-if="qrDataUrl" :src="qrDataUrl" alt="取餐二维码" class="qr-img">
+        <div class="qr-code">{{ qrOrder?.pickupCode }}</div>
+        <div class="qr-order">{{ qrOrder?.orderNo }} · {{ qrOrder?.stallName }}</div>
+        <el-tag type="warning" size="small" round>有效期剩余 {{ qrLeft }} 秒（自动刷新）</el-tag>
+        <div class="qr-tip">请将二维码对准商家扫码枪完成核销</div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -106,6 +118,7 @@ import {
   orderCancel, orderPage, reviewByOrder, reviewCreate
 } from '../../api/order'
 import { COMPLAINT_TYPE, complaintCreate } from '../../api/complaint'
+import QRCode from 'qrcode'
 
 const ORDER_STATUS_MAP = ORDER_STATUS
 
@@ -210,10 +223,47 @@ async function submitComplaint() {
   }
 }
 
+// ---------- 带时效的取餐二维码 ----------
+const qrVisible = ref(false)
+const qrOrder = ref(null)
+const qrDataUrl = ref('')
+const qrLeft = ref(300)
+let qrTimer = null
+
+async function refreshQr() {
+  if (!qrOrder.value) return
+  const expire = Date.now() + 5 * 60 * 1000
+  // 载荷：商家扫码后按 | 分割校验订单号、取餐码与时效
+  const payload = `CANTEEN|${qrOrder.value.orderNo}|${qrOrder.value.pickupCode}|${expire}`
+  qrDataUrl.value = await QRCode.toDataURL(payload, { width: 220, margin: 1, color: { dark: '#4f5040', light: '#ffffff' } })
+  qrLeft.value = 300
+}
+
+function openQr(o) {
+  qrOrder.value = o
+  qrVisible.value = true
+  refreshQr()
+  stopQrTimer()
+  qrTimer = setInterval(() => {
+    qrLeft.value--
+    if (qrLeft.value <= 0) refreshQr()
+  }, 1000)
+}
+
+function stopQrTimer() {
+  if (qrTimer) { clearInterval(qrTimer); qrTimer = null }
+}
+
 onMounted(load)
 </script>
 
 <style scoped>
+.qr-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 6px 0; }
+.qr-img { width: 220px; height: 220px; border: 1px solid #e7e4d2; border-radius: 10px; }
+.qr-code { font-size: 30px; font-weight: 800; letter-spacing: 6px; color: #93977a; }
+.qr-order { font-size: 12px; color: #9b9d84; }
+.qr-tip { font-size: 12px; color: #9b9d84; }
+
 .page { max-width: 1080px; margin: 0 auto; }
 .order-list {
   display: flex;

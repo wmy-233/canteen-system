@@ -80,6 +80,11 @@ const MENU_CONFIG = {
     { path: '/merchant/stats', title: '销量统计', icon: 'TrendCharts' },
     { path: '/merchant/messages', title: '消息中心', icon: 'Bell' }
   ],
+  '/rider': [
+    { path: '/rider', title: '接单大厅', icon: 'Van' },
+    { path: '/rider/orders', title: '我的配送', icon: 'List' },
+    { path: '/rider/messages', title: '消息中心', icon: 'Bell' }
+  ],
   '/admin': [
     { path: '/admin', title: '总览首页', icon: 'HomeFilled' },
     { path: '/admin/users', title: '用户管理', icon: 'User' },
@@ -88,6 +93,7 @@ const MENU_CONFIG = {
     { path: '/admin/complaints', title: '投诉管理', icon: 'ChatDotRound' },
     { path: '/admin/coupons', title: '优惠券管理', icon: 'Ticket' },
     { path: '/admin/stats', title: '全局统计', icon: 'TrendCharts' },
+    { path: '/admin/logs', title: '操作日志', icon: 'Document' },
     { path: '/admin/messages', title: '消息中心', icon: 'Bell' }
   ]
 }
@@ -100,7 +106,8 @@ const menus = computed(() => {
 const ROLE_META = {
   STUDENT: { label: '学生端', type: 'success' },
   MERCHANT: { label: '商家端', type: 'warning' },
-  ADMIN: { label: '管理端', type: 'danger' }
+  ADMIN: { label: '管理端', type: 'danger' },
+  RIDER: { label: '骑手端', type: 'primary' }
 }
 
 const roleLabel = computed(() => ROLE_META[userStore.role]?.label || userStore.role)
@@ -111,7 +118,8 @@ const avatarLetter = computed(() => (userStore.userInfo?.nickname || userStore.u
 const ROLE_THEME = {
   STUDENT: { emoji: '🍱', feature: '学生端', accent: '#93977a', accentSoft: '#a4a88b' },
   MERCHANT: { emoji: '🏪', feature: '商家端', accent: '#a98467', accentSoft: '#bb9984' },
-  ADMIN: { emoji: '📊', feature: '管理端', accent: '#7e94a8', accentSoft: '#97aabb' }
+  ADMIN: { emoji: '📊', feature: '管理端', accent: '#7e94a8', accentSoft: '#97aabb' },
+  RIDER: { emoji: '🛵', feature: '骑手端', accent: '#7a9b8e', accentSoft: '#94b2a6' }
 }
 const roleEmoji = computed(() => ROLE_THEME[userStore.role]?.emoji || '🍜')
 const roleFeature = computed(() => ROLE_THEME[userStore.role]?.feature || '智慧食堂')

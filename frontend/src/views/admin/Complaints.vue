@@ -32,7 +32,12 @@
             <template v-if="Number(c.refund_amount) > 0">· 已退款 ¥{{ fmt(c.refund_amount) }}</template>
           </div>
           <div class="c-foot">
-            <el-tag v-if="c.status === 0" type="info" size="small" effect="plain" round>商家尚未回应，可直接裁定</el-tag>
+            <el-tag v-if="c.status === 0" type="info" size="small" effect="plain" round>
+              {{ c.escalated === 1 ? '⚠️ 已超时升级，优先处理' : '商家尚未回应，可直接裁定' }}
+            </el-tag>
+            <el-button v-if="c.status === 0 && c.escalated !== 1" size="small" round plain type="warning" @click="escalate(c)">
+              标记超时升级
+            </el-button>
             <el-button v-if="c.status !== 2" type="primary" size="small" round @click="openResolve(c)">裁定</el-button>
           </div>
         </el-card>
@@ -75,7 +80,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { COMPLAINT_STATUS, COMPLAINT_TYPE, complaintAdminList, complaintResolve } from '../../api/complaint'
+import { COMPLAINT_STATUS, COMPLAINT_TYPE, complaintAdminList, complaintEscalate, complaintResolve } from '../../api/complaint'
 
 const fmt = (v) => Number(v ?? 0).toFixed(2)
 const statusType = (s) => ({ 0: 'warning', 1: 'primary', 2: 'info' }[s] || 'info')
@@ -108,6 +113,12 @@ function openResolve(c) {
   target.value = c
   Object.assign(resolveForm, { pass: true, content: '', refund: true })
   resolveVisible.value = true
+}
+
+async function escalate(c) {
+  await complaintEscalate(c.id)
+  ElMessage.success('已标记超时升级，管理员与学生的站内信已发送')
+  load()
 }
 
 async function submitResolve() {

@@ -23,4 +23,7 @@ public class OrderItem {
     private BigDecimal price;
 
     private Integer quantity;
+
+    /** 下单时是否限量菜：退款时据此决定是否补库存 */
+    private Integer limited;
 }

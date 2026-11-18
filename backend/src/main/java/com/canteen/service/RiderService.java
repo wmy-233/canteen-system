@@ -7,6 +7,8 @@ import com.canteen.dto.RiderUpdateDTO;
 import com.canteen.vo.OrderVO;
 import com.canteen.vo.RiderVO;
 
+import java.util.List;
+
 /**
  * 骑手管理业务（标注：管理端负责骑手的功能，接口全部挂 /api/admin/rider/**）
  */
@@ -28,4 +30,18 @@ public interface RiderService {
 
     /** 标记送达（1配送中 -> 2已送达，订单同步已完成） */
     void deliver(Long orderId);
+
+    // ---------- 骑手端自主接单（/api/rider/**，ROLE_RIDER） ----------
+
+    /** 当前登录骑手档案 */
+    RiderVO me(Long userId);
+
+    /** 抢单：条件更新保证并发只有一个骑手抢到（先到先得） */
+    void grab(Long riderId, Long orderId);
+
+    /** 我接的配送单 */
+    List<OrderVO> myOrders(Long riderId);
+
+    /** 我的单才能标记送达，防止越权 */
+    void deliverMine(Long riderId, Long orderId);
 }

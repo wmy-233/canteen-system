@@ -28,8 +28,11 @@ public class Dish {
     /** 图片URL */
     private String image;
 
-    /** 每日限量数（0 不限量） */
+    /** 每日剩余限量数 */
     private Integer dailyStock;
+
+    /** 1限量菜 0不限量：区分"不限量"与"限量菜卖完" */
+    private Integer isLimited;
 
     /** 累计销量 */
     private Integer saleCount;
