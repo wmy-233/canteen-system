@@ -88,10 +88,10 @@
         </div>
 
         <form class="chat-input" @submit.prevent="send">
-          <el-tooltip content="新建对话，开启新话题" placement="top">
+          <el-tooltip content="新建对话，开启新话题" placement="top" popper-class="dudu-tip" :teleported="true">
             <button type="button" class="new-chat-btn" title="新建对话" @click="createSession">🆕</button>
           </el-tooltip>
-          <el-tooltip content="图片/附件（多模态扩展中，敬请期待）" placement="top">
+          <el-tooltip content="图片/附件（多模态扩展中，敬请期待）" placement="top" popper-class="dudu-tip" :teleported="true">
             <button type="button" class="attach-btn">📎</button>
           </el-tooltip>
           <el-input v-model="draft" placeholder="问我吃什么…" size="small" clearable />
@@ -229,7 +229,8 @@ function createSession() {
 async function removeSession(id) {
   try {
     await ElMessageBox.confirm('确定要删除此条会话吗？', '删除会话', {
-      confirmButtonText: '删除', cancelButtonText: '再想想', type: 'warning'
+      confirmButtonText: '删除', cancelButtonText: '再想想', type: 'warning',
+      customClass: 'dudu-confirm'
     })
   } catch { return }
   const idx = sessions.value.findIndex(x => x.id === id)
@@ -247,7 +248,8 @@ async function removeSession(id) {
 async function clearCurrent() {
   try {
     await ElMessageBox.confirm('确定要清空当前聊天记录吗？', '清空记录', {
-      confirmButtonText: '清空', cancelButtonText: '再想想', type: 'warning'
+      confirmButtonText: '清空', cancelButtonText: '再想想', type: 'warning',
+      customClass: 'dudu-confirm'
     })
   } catch { return }
   const s = sessions.value.find(x => x.id === currentId.value)
@@ -927,7 +929,15 @@ onBeforeUnmount(() => { if (idleTimer) clearInterval(idleTimer); if (typeTimer) 
 }
 </style>
 
-<!-- popper 挂在 body 下，需全局样式提升层级 -->
+<!-- popper / message-box 默认已挂载到 body，但被 mascot(z-index:3000) 盖住，需全局提层 -->
 <style>
 .dudu-menu { z-index: 4000 !important; }
+/* Tooltip 提示词浮于聊天窗之上 */
+.dudu-tip { z-index: 9999 !important; }
+/* 确认框本体 + 它的全屏半透明遮罩都提到顶层 */
+.dudu-confirm { z-index: 9999 !important; }
+.el-overlay:has(.dudu-confirm) {
+  z-index: 9999 !important;
+  background: rgba(0, 0, 0, 0.45);
+}
 </style>
