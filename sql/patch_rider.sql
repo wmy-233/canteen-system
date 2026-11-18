@@ -28,7 +28,8 @@ CREATE TABLE IF NOT EXISTS `rider` (
 ALTER TABLE order_info
     ADD COLUMN delivery_type TINYINT NOT NULL DEFAULT 0 COMMENT '0自取 1配送' AFTER pickup_code,
     ADD COLUMN rider_id      BIGINT NULL COMMENT '配送骑手(自取单为NULL)' AFTER delivery_type,
-    ADD COLUMN delivery_status TINYINT NULL COMMENT '0未分配 1配送中 2已送达(自取单为NULL)' AFTER rider_id;
+    ADD COLUMN delivery_status TINYINT NULL COMMENT '0未分配 1配送中 2已送达(自取单为NULL)' AFTER rider_id,
+    ADD COLUMN delivery_location VARCHAR(100) NULL COMMENT '校内送达地点(宿舍楼/图书馆/教学楼等)' AFTER delivery_status;
 
 -- 3. RIDER 角色（幂等：存在则跳过）
 INSERT INTO `role` (`role_code`, `role_name`)

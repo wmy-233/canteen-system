@@ -23,6 +23,7 @@
             <div>
               <div class="o-user">{{ o.nickname }} · {{ o.items?.length || 0 }} 件菜品</div>
               <div class="o-no">{{ o.orderNo }} · {{ o.createTime }}</div>
+              <div v-if="o.deliveryType === 1" class="o-no">📍 {{ o.deliveryLocation || '校内指定地点' }}</div>
             </div>
           </div>
           <div class="o-right">

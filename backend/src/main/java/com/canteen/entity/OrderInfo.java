@@ -52,6 +52,9 @@ public class OrderInfo {
     /** 0未分配 1配送中 2已送达（自取单为 NULL） */
     private Integer deliveryStatus;
 
+    /** 校内送达地点（宿舍楼/图书馆/教学楼等） */
+    private String deliveryLocation;
+
     private LocalDateTime createTime;
 
     private LocalDateTime updateTime;

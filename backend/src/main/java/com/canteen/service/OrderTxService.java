@@ -150,6 +150,8 @@ public class OrderTxService {
         order.setDeliveryType(dto.getDeliveryType());
         order.setRiderId(null);
         order.setDeliveryStatus(delivery ? 0 : null);
+        String location = dto.getDeliveryLocation() == null ? "" : dto.getDeliveryLocation().trim();
+        order.setDeliveryLocation(delivery ? (location.isEmpty() ? "校内指定地点" : location) : null);
         order.setPickupCode(delivery ? null : uniquePickupCode(stallId));
         orderInfoMapper.insert(order);
 

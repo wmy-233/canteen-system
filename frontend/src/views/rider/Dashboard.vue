@@ -32,7 +32,7 @@
           </div>
           <div class="or-meta">
             菜品实付 <b>¥{{ fmt(o.payAmount) }}</b> · 跑腿费 <b>¥{{ fmt(o.deliveryFee) }}</b>（送达后结算）
-            <span class="or-time">{{ o.createTime }}</span>
+            <span class="or-time">📍 {{ o.deliveryLocation || '校内指定地点' }} · {{ o.createTime }}</span>
           </div>
         </div>
         <el-button type="primary" round size="small" :loading="grabbing === o.id" @click="grab(o)">

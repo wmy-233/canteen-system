@@ -24,6 +24,9 @@ public class OrderCreateDTO {
     /** 用户领券记录ID（可不传，不传时按门槛自动选择可用券中最高面额） */
     private Long couponId;
 
+    /** 校内送达地点（配送单填写：宿舍楼/图书馆/教学楼等） */
+    private String deliveryLocation;
+
     @NotEmpty(message = "下单明细不能为空")
     @Valid
     private List<Item> items;

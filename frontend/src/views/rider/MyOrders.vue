@@ -12,7 +12,7 @@
               {{ STATUS[o.deliveryStatus] }}
             </el-tag>
           </div>
-          <div class="or-meta">实付 <b>¥{{ fmt(o.payAmount) }}</b> · 跑腿费 <b>¥{{ fmt(o.deliveryFee) }}</b>{{ o.deliveryStatus === 2 ? '（已结算到钱包）' : '（送达后结算）' }} · {{ o.createTime }}</div>
+          <div class="or-meta">实付 <b>¥{{ fmt(o.payAmount) }}</b> · 跑腿费 <b>¥{{ fmt(o.deliveryFee) }}</b>{{ o.deliveryStatus === 2 ? '（已结算到钱包）' : '（送达后结算）' }} · 📍 {{ o.deliveryLocation || '校内指定地点' }} · {{ o.createTime }}</div>
         </div>
         <el-button v-if="o.deliveryStatus === 1" type="success" round size="small" @click="finish(o)">
           标记送达

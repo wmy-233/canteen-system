@@ -33,7 +33,7 @@
             <span v-if="o.deliveryType === 1 && o.deliveryStatus != null" class="o-code">
               配送：{{ DELIVERY_STATUS[o.deliveryStatus] || '-' }}<template v-if="o.riderName">（配送员 {{ o.riderName }}）</template>
             </span>
-            <span v-if="o.deliveryType === 1" class="o-code">跑腿费 ¥{{ fmt(o.deliveryFee) }}</span>
+            <span v-if="o.deliveryType === 1" class="o-code">跑腿费 ¥{{ fmt(o.deliveryFee) }} · 📍 {{ o.deliveryLocation || '校内指定地点' }}</span>
             <span class="o-time">{{ o.createTime }}</span>
           </div>
           <div class="o-ops">

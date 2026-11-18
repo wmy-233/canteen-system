@@ -28,6 +28,9 @@ public class OrderCreateVO {
     /** 跑腿费（担保交易，送达后结算给配送员） */
     private BigDecimal deliveryFee;
 
+    /** 校内送达地点（配送单） */
+    private String deliveryLocation;
+
     /** 0自取 1配送 */
     private Integer deliveryType;
 }

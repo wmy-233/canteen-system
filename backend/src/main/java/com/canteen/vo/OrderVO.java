@@ -45,7 +45,10 @@ public class OrderVO {
 
     private Long riderId;
 
-    /** 骑手姓名（配送单展示） */
+    /** 校内送达地点（配送单展示） */
+    private String deliveryLocation;
+
+    /** 配送员姓名（配送单展示） */
     private String riderName;
 
     /** 0未分配 1配送中 2已送达（自取单 null） */

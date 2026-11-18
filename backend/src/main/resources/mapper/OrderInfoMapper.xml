@@ -21,6 +21,7 @@
             o.rider_id,
             r.name AS rider_name,
             o.delivery_status,
+            o.delivery_location,
             o.create_time
         FROM order_info o
         JOIN stall s ON s.id = o.stall_id
@@ -31,15 +32,15 @@
     <insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
         INSERT INTO order_info
             (order_no, user_id, stall_id, total_amount, discount_amount, pay_amount, delivery_fee,
-             user_coupon_id, batch_no, pickup_code, status, delivery_type, rider_id, delivery_status)
+             user_coupon_id, batch_no, pickup_code, status, delivery_type, rider_id, delivery_status, delivery_location)
         VALUES
             (#{orderNo}, #{userId}, #{stallId}, #{totalAmount}, #{discountAmount}, #{payAmount}, #{deliveryFee},
-             #{userCouponId}, #{batchNo}, #{pickupCode}, #{status}, #{deliveryType}, #{riderId}, #{deliveryStatus})
+             #{userCouponId}, #{batchNo}, #{pickupCode}, #{status}, #{deliveryType}, #{riderId}, #{deliveryStatus}, #{deliveryLocation})
     </insert>
 
     <select id="selectById" resultType="com.canteen.entity.OrderInfo">
         SELECT id, order_no, user_id, stall_id, total_amount, discount_amount, pay_amount, delivery_fee,
-               user_coupon_id, batch_no, pickup_code, status, delivery_type, rider_id, delivery_status,
+               user_coupon_id, batch_no, pickup_code, status, delivery_type, rider_id, delivery_status, delivery_location,
                create_time, update_time
         FROM order_info
         WHERE id = #{id}

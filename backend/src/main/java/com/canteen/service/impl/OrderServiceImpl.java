@@ -346,6 +346,7 @@ public class OrderServiceImpl implements OrderService {
         vo.setDiscountAmount(ctx.discount);
         vo.setPayAmount(ctx.pay);
         vo.setDeliveryFee(ctx.deliveryFee);
+        vo.setDeliveryLocation(order.getDeliveryLocation());
         vo.setDeliveryType(order.getDeliveryType());
         return vo;
     }

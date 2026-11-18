@@ -456,7 +456,7 @@ async function callTool(name, args) {
       const r = await orderPage({ pageNum: 1, pageSize: 10, status: args.status == null ? undefined : Number(args.status) })
       return { orders: (r.data?.list || []).map(o => ({
         orderNo: o.orderNo, stallName: o.stallName, status: ORDER_STATUS[o.status],
-        payAmount: o.payAmount, pickupCode: o.pickupCode,
+        payAmount: o.payAmount, pickupCode: o.pickupCode, deliveryLocation: o.deliveryLocation,
         deliveryStatus: o.deliveryStatus == null ? null : DELIVERY_STATUS[o.deliveryStatus],
         riderName: o.riderName
       })) }

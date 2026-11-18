@@ -127,8 +127,15 @@
           <span class="ck-label">用餐方式</span>
           <el-radio-group v-model="checkout.deliveryType">
             <el-radio :value="0">自取（凭出餐码）</el-radio>
-            <el-radio :value="1">配送到寝室（+¥2 跑腿费，勤工助学配送员接单）</el-radio>
+            <el-radio :value="1">校内配送（+¥2 跑腿费，勤工助学配送员接单）</el-radio>
           </el-radio-group>
+        </div>
+        <div class="ck-row" v-if="checkout.deliveryType === 1">
+          <span class="ck-label">送达地点</span>
+          <el-select v-model="checkout.deliveryLocation" placeholder="选择或输入校内地点（可输入具体宿舍楼）"
+            filterable allow-create default-first-option style="flex:1">
+            <el-option v-for="p in placeOptions" :key="p" :label="p" :value="p" />
+          </el-select>
         </div>
         <div class="ck-row">
           <span class="ck-label">优惠券</span>
@@ -161,7 +168,8 @@
       </div>
       <template #footer>
         <el-button @click="checkoutVisible = false">再想想</el-button>
-        <el-button type="primary" :loading="submitting" @click="submitOrder">确认下单</el-button>
+        <el-button type="primary" :loading="submitting"
+          :disabled="checkout.deliveryType === 1 && !checkout.deliveryLocation" @click="submitOrder">确认下单</el-button>
       </template>
     </el-dialog>
 
@@ -171,7 +179,7 @@
         <el-divider v-if="i > 0" style="margin:12px 0" />
         <div class="done-item">{{ r.stallName }} · 订单号 <b>{{ r.res.orderNo }}</b></div>
         <div class="pickup-code">{{ r.res.deliveryType === 0 ? r.res.pickupCode : '🛵' }}</div>
-        <div class="done-sub">{{ r.res.deliveryType === 0 ? '出餐后凭取餐码取餐' : '商家出餐后由校园配送员送至寝室' }}
+        <div class="done-sub">{{ r.res.deliveryType === 0 ? '出餐后凭取餐码取餐' : '商家出餐后由校园配送员送至' + (r.res.deliveryLocation || '校内指定地点') }}
           · 实付 ¥{{ fmt(r.res.payAmount) }}<template v-if="r.res.discountAmount > 0">（券减 {{ fmt(r.res.discountAmount) }}）</template>
         </div>
       </div>
@@ -299,7 +307,9 @@ const doneVisible = ref(false)
 const orderResults = ref([])   // [{ stallName, res }]
 const failedGroups = ref([])   // 下单失败的档口名
 const usableCoupons = ref([])
-const checkout = reactive({ deliveryType: 0, couponId: undefined })
+const checkout = reactive({ deliveryType: 0, couponId: undefined, deliveryLocation: '' })
+// 校内常见送达地点；用户可直接输入具体宿舍楼（如「3栋宿舍 402」）
+const placeOptions = ['宿舍楼', '图书馆', '第一教学楼', '第二教学楼', '食堂', '体育馆', '校门口', '实验楼']
 
 const pickedCoupon = computed(() => usableCoupons.value.find(c => c.id === checkout.couponId))
 const discount = computed(() => {
@@ -314,7 +324,7 @@ const deliveryFee = computed(() => checkout.deliveryType === 1 ? cartGroups.valu
 
 function openCheckout() {
   cartVisible.value = false
-  Object.assign(checkout, { deliveryType: 0, couponId: undefined })
+  Object.assign(checkout, { deliveryType: 0, couponId: undefined, deliveryLocation: '' })
   couponMine().then(r => { usableCoupons.value = (r.data || []).filter(c => !c.used) })
   checkoutVisible.value = true
 }
@@ -331,6 +341,7 @@ async function submitOrder() {
   try {
     const builds = cartGroups.value.map(g => ({
       deliveryType: checkout.deliveryType,
+      deliveryLocation: checkout.deliveryType === 1 ? checkout.deliveryLocation : undefined,
       couponId: cartGroups.value.length === 1 ? (checkout.couponId || undefined) : undefined,
       items: g.items.map(i => ({ dishId: i.dishId, quantity: i.quantity }))
     }))

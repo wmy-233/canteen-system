@@ -36,7 +36,7 @@
           <div v-for="o in pendingOrders" :key="o.id" class="pending-item">
             <div class="pi-main">
               <div class="pi-line"><b>{{ o.stallName }}</b> → 学生 {{ o.nickname }}</div>
-              <div class="pi-sub">{{ o.orderNo }} · ¥{{ fmt(o.payAmount) }} · {{ o.createTime }}</div>
+              <div class="pi-sub">{{ o.orderNo }} · ¥{{ fmt(o.payAmount) }} · 📍 {{ o.deliveryLocation || '校内指定地点' }} · {{ o.createTime }}</div>
               <div class="pi-chips">
                 <span v-for="it in o.items" :key="it.id" class="pi-chip">{{ it.dishName }}×{{ it.quantity }}</span>
               </div>

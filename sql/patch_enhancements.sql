@@ -52,6 +52,14 @@ SET @sql := IF(@col = 0,
     'SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
+-- 3c-2) 校内送达地点（宿舍楼/图书馆/教学楼等，配送单填写）
+SET @col := (SELECT COUNT(*) FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'order_info' AND COLUMN_NAME = 'delivery_location');
+SET @sql := IF(@col = 0,
+    'ALTER TABLE `order_info` ADD COLUMN `delivery_location` VARCHAR(100) NULL COMMENT ''校内送达地点(宿舍楼/图书馆/教学楼等)'' AFTER `delivery_status`',
+    'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
 -- 3d) 配送单没有取餐码，pickup_code 必须允许 NULL（原 schema 写成 NOT NULL 是历史遗留 bug）
 ALTER TABLE `order_info` MODIFY COLUMN `pickup_code` VARCHAR(8) NULL COMMENT '取餐码(自取单;配送单为NULL)';
 
