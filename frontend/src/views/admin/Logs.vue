@@ -43,7 +43,7 @@ const logs = ref([])
 const keyword = ref('')
 const module = ref('')
 const loading = ref(false)
-const modules = ['用户', '订单', '骑手', '优惠', '档口', '钱包', '评价', '投诉']
+const modules = ['用户', '订单', '配送', '优惠', '档口', '钱包', '评价', '投诉']
 
 async function load() {
   loading.value = true

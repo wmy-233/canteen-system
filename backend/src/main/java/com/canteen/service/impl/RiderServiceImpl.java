@@ -12,9 +12,12 @@ import com.canteen.mapper.OrderInfoMapper;
 import com.canteen.mapper.RiderMapper;
 import com.canteen.mapper.RoleMapper;
 import com.canteen.mapper.UserMapper;
+import com.canteen.mapper.WalletRecordMapper;
+import com.canteen.service.RedisSupport;
 import com.canteen.service.RiderService;
 import com.canteen.vo.OrderVO;
 import com.canteen.vo.RiderVO;
+import com.canteen.entity.WalletRecord;
 import com.github.pagehelper.PageHelper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,6 +43,8 @@ public class RiderServiceImpl implements RiderService {
     private final OrderInfoMapper orderInfoMapper;
     private final PasswordEncoder passwordEncoder;
     private final com.canteen.common.MessageSender messageSender;
+    private final RedisSupport redisSupport;
+    private final WalletRecordMapper walletRecordMapper;
 
     @Override
     public PageResult<RiderVO> page(String keyword, Integer pageNum, Integer pageSize) {
@@ -85,7 +90,7 @@ public class RiderServiceImpl implements RiderService {
     public void update(Long riderId, RiderUpdateDTO dto) {
         Rider rider = riderMapper.selectById(riderId);
         if (rider == null) {
-            throw new BizException("骑手不存在");
+            throw new BizException("配送员不存在");
         }
         Rider update = new Rider();
         update.setId(riderId);
@@ -119,10 +124,10 @@ public class RiderServiceImpl implements RiderService {
     public void assign(RiderAssignDTO dto) {
         Rider rider = riderMapper.selectById(dto.getRiderId());
         if (rider == null) {
-            throw new BizException("骑手不存在");
+            throw new BizException("配送员不存在");
         }
         if (rider.getStatus() == null || rider.getStatus() != 1) {
-            throw new BizException("骑手已停用，不可指派");
+            throw new BizException("配送员已停用，不可指派");
         }
         // 条件更新：仅"未分配"可指派（并发/重复指派安全）
         int rows = orderInfoMapper.assignRider(dto.getOrderId(), dto.getRiderId());
@@ -133,7 +138,7 @@ public class RiderServiceImpl implements RiderService {
         // 站内消息：通知学生配送安排
         com.canteen.entity.OrderInfo order = orderInfoMapper.selectById(dto.getOrderId());
         messageSender.send(order.getUserId(), "你的外卖开始配送 🛵",
-                "订单 " + order.getOrderNo() + " 已安排骑手「" + rider.getName() + "」配送"
+                "订单 " + order.getOrderNo() + " 已安排校园配送员「" + rider.getName() + "」配送"
                         + (rider.getPhone() != null ? "，联系方式 " + rider.getPhone() : ""),
                 com.canteen.common.MessageSender.TYPE_DELIVERY);
         log.info("配送单指派: orderId={}, riderId={}", dto.getOrderId(), dto.getRiderId());
@@ -160,7 +165,7 @@ public class RiderServiceImpl implements RiderService {
     public RiderVO me(Long userId) {
         Rider rider = riderMapper.selectByUserId(userId);
         if (rider == null) {
-            throw new BizException("当前账号未绑定骑手档案，请联系管理员");
+            throw new BizException("当前账号未绑定校园配送员档案，请联系管理员");
         }
         RiderVO vo = new RiderVO();
         vo.setId(rider.getId());
@@ -179,21 +184,24 @@ public class RiderServiceImpl implements RiderService {
     public void grab(Long riderId, Long orderId) {
         Rider rider = riderMapper.selectById(riderId);
         if (rider == null || !Integer.valueOf(1).equals(rider.getStatus())) {
-            throw new BizException("骑手不在岗，无法抢单");
+            throw new BizException("配送员不在岗，无法接单");
         }
-        // 与管理员派单共用同一条件更新：WHERE delivery_status=0 AND status=0
-        // 多个骑手同时抢一单时，只有第一个 UPDATE 影响行数为 1，天然先到先得。
-        int rows = orderInfoMapper.assignRider(orderId, riderId);
-        if (rows == 0) {
-            checkOrderExists(orderId);
-            throw new BizException("手慢了，该单已被其他骑手抢走");
-        }
-        OrderInfo order = orderInfoMapper.selectById(orderId);
-        messageSender.send(order.getUserId(), "你的外卖开始配送 🛵",
-                "订单 " + order.getOrderNo() + " 已被骑手「" + rider.getName() + "」抢单，正在为你配送"
-                        + (rider.getPhone() != null ? "，联系方式 " + rider.getPhone() : ""),
-                com.canteen.common.MessageSender.TYPE_DELIVERY);
-        log.info("骑手抢单成功: orderId={}, riderId={}", orderId, riderId);
+        // 高并发接单：Redisson 分布式锁（订单维度）+ 数据库条件更新双保险。
+        // Redis 不可用时 withLock 自动降级直跑，条件更新依旧保证只有一人接到，零超卖。
+        redisSupport.withLock("lock:delivery:grab:" + orderId, 8, () -> {
+            int rows = orderInfoMapper.assignRider(orderId, riderId);
+            if (rows == 0) {
+                checkOrderExists(orderId);
+                throw new BizException("手慢了，该单已被其他配送员接走");
+            }
+            OrderInfo order = orderInfoMapper.selectById(orderId);
+            messageSender.send(order.getUserId(), "你的外卖开始配送 🛵",
+                    "订单 " + order.getOrderNo() + " 已被校园配送员「" + rider.getName() + "」接单，正在为你配送"
+                            + (rider.getPhone() != null ? "，联系方式 " + rider.getPhone() : ""),
+                    com.canteen.common.MessageSender.TYPE_DELIVERY);
+            log.info("校园配送员接单成功: orderId={}, riderId={}", orderId, riderId);
+            return null;
+        });
     }
 
     @Override
@@ -212,10 +220,24 @@ public class RiderServiceImpl implements RiderService {
         if (rows == 0) {
             throw new BizException("仅配送中的订单可标记送达");
         }
+        // 担保交易结算：学生支付的跑腿费在平台冻结，确认送达后才结算到配送员校园钱包
+        BigDecimal fee = order.getDeliveryFee() == null ? BigDecimal.ZERO : order.getDeliveryFee();
+        if (fee.compareTo(BigDecimal.ZERO) > 0) {
+            Rider rider = riderMapper.selectById(riderId);
+            if (rider != null) {
+                userMapper.addBalance(rider.getUserId(), fee);
+                WalletRecord income = new WalletRecord();
+                income.setUserId(rider.getUserId());
+                income.setType(4); // 4跑腿收入
+                income.setAmount(fee);
+                income.setRefOrderNo(order.getOrderNo());
+                walletRecordMapper.insert(income);
+            }
+        }
         messageSender.send(order.getUserId(), "配送已完成 🎉",
                 "订单 " + order.getOrderNo() + " 已送达，祝用餐愉快！如遇问题可对该订单发起投诉",
                 com.canteen.common.MessageSender.TYPE_DELIVERY);
-        log.info("骑手完成配送: orderId={}, riderId={}", orderId, riderId);
+        log.info("校园配送员完成配送: orderId={}, riderId={}, 跑腿费结算={}", orderId, riderId, fee);
     }
 
     private void checkOrderExists(Long orderId) {

@@ -74,7 +74,7 @@ const pageNum = ref(1)
 const pageSize = 10
 const loading = ref(false)
 
-const roleName = (r) => ({ STUDENT: '学生', MERCHANT: '商家', ADMIN: '管理员', RIDER: '骑手' }[r] || r || '-')
+const roleName = (r) => ({ STUDENT: '学生', MERCHANT: '商家', ADMIN: '管理员', RIDER: '校园配送员' }[r] || r || '-')
 const roleStyle = (r) => ({ STUDENT: 'success', MERCHANT: 'warning', ADMIN: 'danger', RIDER: 'primary' }[r] || 'info')
 
 function isSelf(row) { return row.id === userStore.userInfo?.userId || row.username === userStore.userInfo?.username }

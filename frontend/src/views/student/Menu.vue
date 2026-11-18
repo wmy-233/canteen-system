@@ -127,7 +127,7 @@
           <span class="ck-label">用餐方式</span>
           <el-radio-group v-model="checkout.deliveryType">
             <el-radio :value="0">自取（凭出餐码）</el-radio>
-            <el-radio :value="1">配送（骑手上门）</el-radio>
+            <el-radio :value="1">配送到寝室（+¥2 跑腿费，勤工助学配送员接单）</el-radio>
           </el-radio-group>
         </div>
         <div class="ck-row">
@@ -149,8 +149,11 @@
         <el-descriptions :column="1" border size="small">
           <el-descriptions-item label="商品合计">{{ cartGroups.length }} 笔订单 · ¥{{ fmt(cartTotal) }}</el-descriptions-item>
           <el-descriptions-item label="优惠减免">- ¥{{ fmt(discount) }}</el-descriptions-item>
+          <el-descriptions-item v-if="checkout.deliveryType === 1" label="跑腿费（担保交易）">
+            + ¥{{ fmt(deliveryFee) }} <span class="fee-note">送达后结算给校园配送员，优惠券不抵扣</span>
+          </el-descriptions-item>
           <el-descriptions-item label="实付">
-            <span class="pay-amount">¥{{ fmt(cartTotal - discount) }}</span>
+            <span class="pay-amount">¥{{ fmt(cartTotal - discount + deliveryFee) }}</span>
           </el-descriptions-item>
         </el-descriptions>
         <el-alert type="warning" :closable="false" style="margin-top:8px"
@@ -168,7 +171,7 @@
         <el-divider v-if="i > 0" style="margin:12px 0" />
         <div class="done-item">{{ r.stallName }} · 订单号 <b>{{ r.res.orderNo }}</b></div>
         <div class="pickup-code">{{ r.res.deliveryType === 0 ? r.res.pickupCode : '🛵' }}</div>
-        <div class="done-sub">{{ r.res.deliveryType === 0 ? '出餐后凭取餐码取餐' : '商家出餐后骑手配送' }}
+        <div class="done-sub">{{ r.res.deliveryType === 0 ? '出餐后凭取餐码取餐' : '商家出餐后由校园配送员送至寝室' }}
           · 实付 ¥{{ fmt(r.res.payAmount) }}<template v-if="r.res.discountAmount > 0">（券减 {{ fmt(r.res.discountAmount) }}）</template>
         </div>
       </div>
@@ -306,6 +309,8 @@ const discount = computed(() => {
   if (!c || cartTotal.value < Number(c.threshold)) return 0
   return Math.min(Number(c.amount), cartTotal.value)
 })
+// 每笔配送单 2 元跑腿费（跨档口拆单时按子单数计）
+const deliveryFee = computed(() => checkout.deliveryType === 1 ? cartGroups.value.length * 2 : 0)
 
 function openCheckout() {
   cartVisible.value = false
@@ -529,6 +534,7 @@ onMounted(async () => {
 }
 .checkout .ck-label { color: #5e5f4e; font-size: 13px; width: 56px; flex: none; }
 .pay-amount { color: #b0714f; font-weight: 700; font-size: 18px; }
+.fee-note { font-size: 11px; color: #9b9d84; margin-left: 6px; }
 
 /* 下单成功 */
 .done-box { text-align: center; }

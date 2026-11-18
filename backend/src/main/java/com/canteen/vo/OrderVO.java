@@ -32,6 +32,9 @@ public class OrderVO {
 
     private BigDecimal payAmount;
 
+    /** 跑腿费（担保交易） */
+    private BigDecimal deliveryFee;
+
     private String pickupCode;
 
     /** 0待处理 1已完成 2已取消 */

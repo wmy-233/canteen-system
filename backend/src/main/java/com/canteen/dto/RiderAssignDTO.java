@@ -13,6 +13,6 @@ public class RiderAssignDTO {
     @NotNull(message = "订单不能为空")
     private Long orderId;
 
-    @NotNull(message = "骑手不能为空")
+    @NotNull(message = "配送员不能为空")
     private Long riderId;
 }

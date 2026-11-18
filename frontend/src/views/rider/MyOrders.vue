@@ -1,8 +1,8 @@
 <template>
   <div class="rider-page">
-    <div class="rd-title">🛵 我的配送</div>
+    <div class="rd-title">🛵 我的跑腿单</div>
     <el-card shadow="never" class="rider-card">
-      <el-empty v-if="!loading && list.length === 0" description="还没有接到配送单，去接单大厅看看～" />
+      <el-empty v-if="!loading && list.length === 0" description="还没有接到跑腿单，去跑腿大厅看看～" />
       <div v-for="o in list" :key="o.id" class="order-row">
         <div class="or-left">
           <div class="or-top">
@@ -12,7 +12,7 @@
               {{ STATUS[o.deliveryStatus] }}
             </el-tag>
           </div>
-          <div class="or-meta">实付 <b>¥{{ fmt(o.payAmount) }}</b> · {{ o.createTime }}</div>
+          <div class="or-meta">实付 <b>¥{{ fmt(o.payAmount) }}</b> · 跑腿费 <b>¥{{ fmt(o.deliveryFee) }}</b>{{ o.deliveryStatus === 2 ? '（已结算到钱包）' : '（送达后结算）' }} · {{ o.createTime }}</div>
         </div>
         <el-button v-if="o.deliveryStatus === 1" type="success" round size="small" @click="finish(o)">
           标记送达

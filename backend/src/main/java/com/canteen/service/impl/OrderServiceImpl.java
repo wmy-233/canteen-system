@@ -52,6 +52,8 @@ import java.util.stream.Collectors;
 public class OrderServiceImpl implements OrderService {
 
     private static final SecureRandom RANDOM = new SecureRandom();
+    /** 配送到寝室的跑腿费（担保交易：下单冻结，送达后结算给校园配送员） */
+    private static final BigDecimal DELIVERY_FEE = new BigDecimal("2.00");
 
     private final DishMapper dishMapper;
     private final StallMapper stallMapper;
@@ -92,7 +94,7 @@ public class OrderServiceImpl implements OrderService {
         try {
             order = runWithLocks(lockIds, 0, () -> orderTxService.createOrderInTransaction(
                     userId, dto, ctx.dishes, null,
-                    ctx.couponUserCouponId, ctx.total, ctx.discount, ctx.pay));
+                    ctx.couponUserCouponId, ctx.total, ctx.discount, ctx.pay, ctx.deliveryFee));
         } catch (RuntimeException e) {
             for (Long id : preDecreased) {
                 redisStockService.restore(id, quantityOf(dto, id));
@@ -133,7 +135,7 @@ public class OrderServiceImpl implements OrderService {
             OrderTxService.OrderContext ctx = prepare(dto, userId, dtos.size() == 1);
             if (ctx.couponUserCouponId != null && !usedCoupons.add(ctx.couponUserCouponId)) {
                 ctx = new OrderTxService.OrderContext(ctx.dto, ctx.dishes, null,
-                        ctx.total, BigDecimal.ZERO, ctx.total);
+                        ctx.total, BigDecimal.ZERO, ctx.total.add(ctx.deliveryFee), ctx.deliveryFee);
             }
             contexts.add(ctx);
         }
@@ -243,9 +245,12 @@ public class OrderServiceImpl implements OrderService {
             couponRecordId = null;
         }
         BigDecimal discount = coupon != null ? coupon.getAmount() : BigDecimal.ZERO;
-        BigDecimal pay = total.subtract(discount).max(BigDecimal.ZERO);
+        // 优惠券只抵扣菜品金额，不抵扣跑腿费；跑腿费先由平台担保冻结
+        BigDecimal deliveryFee = (dto.getDeliveryType() != null && dto.getDeliveryType() == 1)
+                ? DELIVERY_FEE : BigDecimal.ZERO;
+        BigDecimal pay = total.subtract(discount).max(BigDecimal.ZERO).add(deliveryFee);
 
-        return new OrderTxService.OrderContext(dto, dishes, couponRecordId, total, discount, pay);
+        return new OrderTxService.OrderContext(dto, dishes, couponRecordId, total, discount, pay, deliveryFee);
     }
 
     @Override
@@ -278,7 +283,7 @@ public class OrderServiceImpl implements OrderService {
         if (order.getStatus() != 0) throw new BizException("仅待处理的订单可取消");
         if (order.getDeliveryType() != null && order.getDeliveryType() == 1
                 && order.getDeliveryStatus() != null && order.getDeliveryStatus() >= 1) {
-            throw new BizException("配送单已指派骑手，请联系管理员取消");
+            throw new BizException("配送单已指派配送员，请联系管理员取消");
         }
         orderTxService.cancelOrderInTransaction(order);
         log.info("取消订单并退款: userId={}, orderNo={}", userId, order.getOrderNo());
@@ -308,7 +313,7 @@ public class OrderServiceImpl implements OrderService {
             throw new BizException("只能核销本档口订单");
         }
         if (order.getDeliveryType() != null && order.getDeliveryType() == 1) {
-            throw new BizException("配送单由骑手流转，无需档口核销");
+            throw new BizException("配送单由校园配送员流转，无需档口核销");
         }
         if (orderInfoMapper.updateStatusConditional(orderId, 0, 1) == 0) {
             throw new BizException("订单状态已变化，核销失败");
@@ -340,6 +345,7 @@ public class OrderServiceImpl implements OrderService {
         vo.setTotalAmount(ctx.total);
         vo.setDiscountAmount(ctx.discount);
         vo.setPayAmount(ctx.pay);
+        vo.setDeliveryFee(ctx.deliveryFee);
         vo.setDeliveryType(order.getDeliveryType());
         return vo;
     }

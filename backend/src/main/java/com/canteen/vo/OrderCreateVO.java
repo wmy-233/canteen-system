@@ -25,6 +25,9 @@ public class OrderCreateVO {
 
     private BigDecimal payAmount;
 
+    /** 跑腿费（担保交易，送达后结算给配送员） */
+    private BigDecimal deliveryFee;
+
     /** 0自取 1配送 */
     private Integer deliveryType;
 }

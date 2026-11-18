@@ -32,11 +32,11 @@ ALTER TABLE order_info
 
 -- 3. RIDER 角色（幂等：存在则跳过）
 INSERT INTO `role` (`role_code`, `role_name`)
-SELECT 'RIDER', '骑手'
+SELECT 'RIDER', '校园配送员'
 WHERE NOT EXISTS (SELECT 1 FROM `role` WHERE role_code = 'RIDER');
 
 -- 4. 权限点 + 仅授予 ADMIN（骑手功能在管理端）
-INSERT IGNORE INTO menu (menu_code, menu_name, sort) VALUES ('rider:list', '骑手查询', 11);
+INSERT IGNORE INTO menu (menu_code, menu_name, sort) VALUES ('rider:list', '配送员查询', 11);
 INSERT IGNORE INTO menu (menu_code, menu_name, sort) VALUES ('rider:manage', '配送管理', 12);
 INSERT INTO role_menu (role_id, menu_id)
 SELECT r.id, m.id FROM `role` r JOIN menu m
@@ -50,8 +50,8 @@ WHERE r.role_code = 'ADMIN'
 -- 5. 演示数据：骑手账号（密码 123456，BCrypt 密文与 init_data.sql 同源）
 -- ------------------------------------------------------------
 INSERT INTO `user` (username, password, nickname, phone, balance, status) VALUES
-('rider1', '$2a$10$VELqKXzIE2tQToLUP28l3egX1kE.wBHM.c/JMK431GaaYMnHNL722', '骑手王小跑', '13900000001', 0.00, 1),
-('rider2', '$2a$10$VELqKXzIE2tQToLUP28l3egX1kE.wBHM.c/JMK431GaaYMnHNL722', '骑手李慢递', '13900000002', 0.00, 0);
+('rider1', '$2a$10$VELqKXzIE2tQToLUP28l3egX1kE.wBHM.c/JMK431GaaYMnHNL722', '配送员王小跑', '13900000001', 0.00, 1),
+('rider2', '$2a$10$VELqKXzIE2tQToLUP28l3egX1kE.wBHM.c/JMK431GaaYMnHNL722', '配送员小李', '13900000002', 0.00, 0);
 
 INSERT INTO user_role (user_id, role_id)
 SELECT u.id, r.id FROM `user` u JOIN `role` r

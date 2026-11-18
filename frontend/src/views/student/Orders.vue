@@ -31,8 +31,9 @@
             </el-tag>
             <span v-if="o.deliveryType === 0 && o.pickupCode" class="o-code">取餐码 <b>{{ o.pickupCode }}</b></span>
             <span v-if="o.deliveryType === 1 && o.deliveryStatus != null" class="o-code">
-              配送：{{ DELIVERY_STATUS[o.deliveryStatus] || '-' }}<template v-if="o.riderName">（{{ o.riderName }}）</template>
+              配送：{{ DELIVERY_STATUS[o.deliveryStatus] || '-' }}<template v-if="o.riderName">（配送员 {{ o.riderName }}）</template>
             </span>
+            <span v-if="o.deliveryType === 1" class="o-code">跑腿费 ¥{{ fmt(o.deliveryFee) }}</span>
             <span class="o-time">{{ o.createTime }}</span>
           </div>
           <div class="o-ops">

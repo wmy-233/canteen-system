@@ -141,7 +141,11 @@ public class ComplaintService {
         if (pass) {
             // 成立：默认全额退款（订单实付），退款已全部退款的单子（已取消）跳过
             if (doRefund && order != null && order.getStatus() != null && order.getStatus() != 2) {
+                // 跑腿费是配送服务的报酬，送达后已结算给配送员，投诉退款只退菜品部分
                 refundAmount = order.getPayAmount() == null ? BigDecimal.ZERO : order.getPayAmount();
+                if (order.getDeliveryFee() != null) {
+                    refundAmount = refundAmount.subtract(order.getDeliveryFee()).max(BigDecimal.ZERO);
+                }
                 if (refundAmount.compareTo(BigDecimal.ZERO) > 0) {
                     int rows = userMapper.addBalance(c.getStudentUserId(), refundAmount);
                     if (rows == 0) {

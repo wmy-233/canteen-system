@@ -4,13 +4,13 @@
       <div>
         <div class="rh-emoji">🛵</div>
         <div>
-          <div class="rh-title">接单大厅</div>
-          <div class="rh-sub">{{ me?.name || '骑手' }}，抢到单后请尽快取餐配送～ 超时未接的单由管理员兜底指派</div>
+          <div class="rh-title">跑腿大厅</div>
+          <div class="rh-sub">{{ me?.name || '配送员' }}，接单后请到档口取餐送至寝室～ 本模块为校园勤工助学岗位，固定配送员与兼职同学均可接单；超时未接的单由管理员协调</div>
         </div>
       </div>
       <div class="rh-stat">
         <div class="rh-num">{{ pending.length }}</div>
-        <div class="rh-label">待抢配送单</div>
+        <div class="rh-label">待接跑腿单</div>
       </div>
     </div>
 
@@ -22,7 +22,7 @@
         </div>
       </template>
 
-      <el-empty v-if="!loading && pending.length === 0" description="暂时没有待抢订单，喝口水等等吧～" />
+      <el-empty v-if="!loading && pending.length === 0" description="暂时没有待接跑腿单，喝口水等等吧～" />
 
       <div v-for="o in pending" :key="o.id" class="order-row">
         <div class="or-left">
@@ -31,12 +31,12 @@
             <span class="or-stall">🏪 {{ o.stallName }}</span>
           </div>
           <div class="or-meta">
-            实付 <b>¥{{ fmt(o.payAmount) }}</b>
+            菜品实付 <b>¥{{ fmt(o.payAmount) }}</b> · 跑腿费 <b>¥{{ fmt(o.deliveryFee) }}</b>（送达后结算）
             <span class="or-time">{{ o.createTime }}</span>
           </div>
         </div>
         <el-button type="primary" round size="small" :loading="grabbing === o.id" @click="grab(o)">
-          立即抢单
+          接这单
         </el-button>
       </div>
     </el-card>
@@ -67,16 +67,16 @@ async function load() {
 
 async function grab(o) {
   try {
-    await ElMessageBox.confirm(`确认抢订单 ${o.orderNo}？抢到后请尽快到档口取餐。`, '抢单', { type: 'info' })
+    await ElMessageBox.confirm(`确认接下订单 ${o.orderNo}？接单后请到档口取餐，送至宿舍后点「标记送达」，跑腿费将结算到你的校园钱包。`, '接单', { type: 'info' })
   } catch { return }
   grabbing.value = o.id
   try {
     await riderGrab(o.id)
-    ElMessage.success('抢单成功！请在「我的配送」查看订单 🛵')
+    ElMessage.success('接单成功！请在「我的跑腿单」查看订单 🛵')
     await load()
   } catch (e) {
-    // 并发失败：条件更新保证只有一人抢到
-    ElMessage.warning(e?.message || '手慢了，该单可能已被其他骑手抢走')
+    // 并发失败：Redis 锁 + 条件更新保证只有一人接到
+    ElMessage.warning(e?.message || '手慢了，该单可能已被其他配送员接走')
     await load()
   } finally {
     grabbing.value = null

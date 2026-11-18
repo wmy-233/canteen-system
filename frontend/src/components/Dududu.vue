@@ -426,7 +426,7 @@ function replyOf(q) {
   if (/你是谁|你好|嗨|hello/i.test(q)) return '我是胆子肥嘟嘟！虽然胆子肥，但饭量更肥～管你点餐、查余额、讲笑话，样样都行！'
   if (/推荐|吃|点餐|啥/.test(q)) return '今天热销的「红烧排骨」超受欢迎，趁热冲！保守党可以来碗**牛肉拉面**，暖胃又顶饱～'
   if (/余额|钱包|钱/.test(q)) return lastBalance != null ? `你当前钱包余额 **${lastBalance} 元**，还够几顿小火锅我也好奇 😋` : '去「我的钱包」看看就知道啦～'
-  if (/订单|出餐|取餐/.test(q)) return '去「我的订单」看状态～商家出餐后凭取餐码取餐，配送单就等骑手电话哦'
+  if (/订单|出餐|取餐/.test(q)) return '去「我的订单」看状态～商家出餐后凭取餐码取餐，配送单就等校园配送员联系你哦'
   if (/优惠券|券|优惠/.test(q)) return '「优惠券」页面有可领的券，下单时能自动帮你选最划算的一张～'
   if (/投诉/.test(q)) return '对订单不满意可以在「我的订单」里发起投诉，商家回应后管理员会裁定，放心维权！'
   if (/笑话|搞笑|逗|无聊/.test(q)) return '食堂阿姨看了我一眼手就抖了——所以我减肥全靠缘分 😂'
@@ -437,7 +437,7 @@ function replyOf(q) {
 // ================= 真·Function Calling：让 AI 调用真实业务接口 =================
 const TOOLS = [
   { type: 'function', function: { name: 'get_wallet_balance', description: '查询当前登录学生的校园卡钱包余额', parameters: { type: 'object', properties: {} } } },
-  { type: 'function', function: { name: 'get_my_orders', description: '查询我的订单列表及状态、取餐码、骑手信息', parameters: { type: 'object', properties: { status: { type: 'string', description: '0待处理 1已完成 2已取消；不传表示查全部' } } } } },
+  { type: 'function', function: { name: 'get_my_orders', description: '查询我的订单列表及状态、取餐码、配送员信息', parameters: { type: 'object', properties: { status: { type: 'string', description: '0待处理 1已完成 2已取消；不传表示查全部' } } } } },
   { type: 'function', function: { name: 'get_cart', description: '查看当前购物车里的菜品与数量', parameters: { type: 'object', properties: {} } } },
   { type: 'function', function: { name: 'get_hot_dishes', description: '查询今日热销菜排行榜（今日特价/热门菜）', parameters: { type: 'object', properties: {} } } },
   { type: 'function', function: { name: 'add_to_cart', description: '把指定菜品加入购物车', parameters: { type: 'object', properties: { dishId: { type: 'integer', description: '菜品ID' }, quantity: { type: 'integer', description: '数量，默认1' } }, required: ['dishId'] } } }

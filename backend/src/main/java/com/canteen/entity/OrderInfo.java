@@ -28,6 +28,9 @@ public class OrderInfo {
 
     private BigDecimal payAmount;
 
+    /** 跑腿费：下单时收取并冻结在平台，送达后结算给配送员 */
+    private BigDecimal deliveryFee;
+
     /** 下单核销的 user_coupon 记录ID（精确退券） */
     private Long userCouponId;
 

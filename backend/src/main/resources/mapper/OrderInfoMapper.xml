@@ -14,6 +14,7 @@
             o.total_amount,
             o.discount_amount,
             o.pay_amount,
+            o.delivery_fee,
             o.pickup_code,
             o.status,
             o.delivery_type,
@@ -29,15 +30,15 @@
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
         INSERT INTO order_info
-            (order_no, user_id, stall_id, total_amount, discount_amount, pay_amount,
+            (order_no, user_id, stall_id, total_amount, discount_amount, pay_amount, delivery_fee,
              user_coupon_id, batch_no, pickup_code, status, delivery_type, rider_id, delivery_status)
         VALUES
-            (#{orderNo}, #{userId}, #{stallId}, #{totalAmount}, #{discountAmount}, #{payAmount},
+            (#{orderNo}, #{userId}, #{stallId}, #{totalAmount}, #{discountAmount}, #{payAmount}, #{deliveryFee},
              #{userCouponId}, #{batchNo}, #{pickupCode}, #{status}, #{deliveryType}, #{riderId}, #{deliveryStatus})
     </insert>
 
     <select id="selectById" resultType="com.canteen.entity.OrderInfo">
-        SELECT id, order_no, user_id, stall_id, total_amount, discount_amount, pay_amount,
+        SELECT id, order_no, user_id, stall_id, total_amount, discount_amount, pay_amount, delivery_fee,
                user_coupon_id, batch_no, pickup_code, status, delivery_type, rider_id, delivery_status,
                create_time, update_time
         FROM order_info

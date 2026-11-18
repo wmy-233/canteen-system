@@ -27,7 +27,7 @@
           </div>
           <div class="o-right">
             <el-tag v-if="o.deliveryType === 1" size="small" round>
-              {{ o.deliveryStatus === 2 ? '已送达' : o.deliveryStatus === 1 ? `配送中·${o.riderName || ''}` : '待分配骑手' }}
+              {{ o.deliveryStatus === 2 ? '已送达' : o.deliveryStatus === 1 ? `配送中·${o.riderName || ''}` : '待配送员接单' }}
             </el-tag>
             <el-tag :type="statusType(o.status)" round>{{ ORDER_STATUS[o.status] }}</el-tag>
           </div>
@@ -43,7 +43,7 @@
             v-if="o.status === 0 && o.deliveryType === 0"
             type="primary" size="small" round @click="openScan(o)"
           >扫码核销 · 出餐</el-button>
-          <el-tag v-if="o.status === 0 && o.deliveryType === 1" type="info" size="small" round>等待管理员分配骑手</el-tag>
+          <el-tag v-if="o.status === 0 && o.deliveryType === 1" type="info" size="small" round>等待配送员接单（跑腿大厅）</el-tag>
         </div>
       </el-card>
       <el-empty v-if="!loading && orders.length === 0" description="暂时没有相关订单" />

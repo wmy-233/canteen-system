@@ -25,10 +25,10 @@ import java.util.List;
  *
  * 设计取舍：纯管理员派单会让管理员成为瓶颈、骑手缺乏自主性；
  * 纯抢单又可能出现冷门单无人接。因此采用「骑手抢单为主 + 管理员兜底派单」混合模式。
- * 并发安全：抢单与管理端指派复用同一条条件更新 SQL（WHERE delivery_status=0 AND status=0），
- * 多个骑手同时抢同一单时只有一人成功，无需额外 Redis 锁。
+ * 并发安全：Redisson 分布式锁（订单维度）+ 条件更新 SQL（WHERE delivery_status=0 AND status=0）双保险，
+ * 多个配送员同时接同一单时只有一人成功；Redis 不可用时自动降级，条件更新依旧零冲突。
  */
-@Tag(name = "骑手端-接单配送")
+@Tag(name = "校园配送端-接单配送（勤工助学）")
 @RestController
 @RequestMapping("/api/rider")
 @RequiredArgsConstructor
@@ -42,12 +42,12 @@ public class RiderApiController {
         Long userId = SecurityUtil.getUserId();
         Rider rider = riderMapper.selectByUserId(userId);
         if (rider == null) {
-            throw new BizException("当前账号未绑定骑手档案");
+            throw new BizException("当前账号未绑定校园配送员档案");
         }
         return rider.getId();
     }
 
-    @Operation(summary = "当前骑手档案")
+    @Operation(summary = "当前校园配送员档案")
     @GetMapping("/me")
     public Result<RiderVO> me() {
         return Result.success(riderService.me(SecurityUtil.getUserId()));

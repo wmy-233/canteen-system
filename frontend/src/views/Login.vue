@@ -115,7 +115,7 @@ const PORTALS = {
   STUDENT: { key: 'STUDENT', label: '学生端', emoji: '🍱', desc: '点餐 · 卡包 · 校园券', accent: '#93977a' },
   MERCHANT: { key: 'MERCHANT', label: '商家端', emoji: '🏪', desc: '菜品 · 出餐 · 生意', accent: '#a98467' },
   ADMIN: { key: 'ADMIN', label: '管理端', emoji: '📊', desc: '审核 · 调度 · 全局', accent: '#7e94a8' },
-  RIDER: { key: 'RIDER', label: '骑手端', emoji: '🛵', desc: '抢单 · 配送 · 送达', accent: '#7a9b8e' }
+  RIDER: { key: 'RIDER', label: '校园配送端', emoji: '🛵', desc: '勤工助学 · 接单 · 送达', accent: '#7a9b8e' }
 }
 
 const router = useRouter()

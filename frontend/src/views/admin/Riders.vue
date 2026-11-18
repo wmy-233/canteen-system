@@ -1,12 +1,12 @@
 <template>
   <div class="page">
     <div class="row">
-      <!-- 骑手管理 -->
+      <!-- 校园配送员管理 -->
       <el-card shadow="never" class="panel">
         <template #header>
           <div class="panel-head">
-            <span>骑手队伍</span>
-            <el-button type="primary" round size="small" @click="openCreate">＋ 新建骑手</el-button>
+            <span>校园配送员（勤工助学 + 固定配送）</span>
+            <el-button type="primary" round size="small" @click="openCreate">＋ 新建配送员</el-button>
           </div>
         </template>
         <el-table :data="riders" stripe v-loading="riderLoading" size="small">
@@ -42,7 +42,7 @@
               </div>
             </div>
             <div class="pi-ops">
-              <el-select :model-value="undefined" placeholder="选在岗骑手" size="small" style="width:120px"
+              <el-select :model-value="undefined" placeholder="选在岗配送员" size="small" style="width:120px"
                 @change="v => assign(o, v)">
                 <el-option v-for="r in activeRiders" :key="r.id" :label="r.name" :value="r.id" />
               </el-select>
@@ -53,12 +53,12 @@
       </el-card>
     </div>
 
-    <!-- 新建骑手 -->
-    <el-dialog v-model="createVisible" title="新建骑手账号" width="420px">
+    <!-- 新建配送员 -->
+    <el-dialog v-model="createVisible" title="新建校园配送员账号" width="420px">
       <el-form :model="riderForm" label-width="60px">
         <el-form-item label="账号" required><el-input v-model="riderForm.username" placeholder="2-50位" /></el-form-item>
         <el-form-item label="密码" required><el-input v-model="riderForm.password" type="password" placeholder="6-20位" show-password /></el-form-item>
-        <el-form-item label="姓名" required><el-input v-model="riderForm.name" placeholder="骑手真实姓名" /></el-form-item>
+        <el-form-item label="姓名" required><el-input v-model="riderForm.name" placeholder="配送员真实姓名" /></el-form-item>
         <el-form-item label="电话"><el-input v-model="riderForm.phone" /></el-form-item>
       </el-form>
       <template #footer>
@@ -126,7 +126,7 @@ async function createRider() {
   creating.value = true
   try {
     await riderCreate(riderForm.value)
-    ElMessage.success('骑手创建成功')
+    ElMessage.success('校园配送员创建成功')
     createVisible.value = false
     loadRiders()
   } finally {
@@ -136,7 +136,7 @@ async function createRider() {
 
 async function assign(o, riderId) {
   if (!riderId) return
-  await ElMessageBox.confirm('确认指派这位骑手配送该订单？', '指派骑手', { type: 'info' })
+  await ElMessageBox.confirm('确认指派这位配送员配送该订单？', '指派配送', { type: 'info' })
   await riderAssign({ orderId: o.id, riderId })
   ElMessage.success('已指派，订单进入配送中')
   loadPending()

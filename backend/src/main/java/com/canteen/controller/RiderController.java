@@ -26,7 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
  * 骑手管理（A11 专项，管理员"负责骑手"的功能）：全部挂 /api/admin/rider/**（仅 ADMIN）
  * 状态机：0未分配 -> 1配送中 -> 2已送达；指派必须在岗骑手
  */
-@Tag(name = "管理端-骑手管理")
+@Tag(name = "管理端-校园配送员管理")
 @RestController
 @RequestMapping("/api/admin/rider")
 @RequiredArgsConstructor
@@ -44,7 +44,7 @@ public class RiderController {
     }
 
     @Operation(summary = "新增骑手（创建登录账号并绑定 RIDER 角色，默认在岗）")
-    @OpLog(module = "骑手", action = "新增")
+    @OpLog(module = "配送", action = "新增")
     @PostMapping("/create")
     public Result<Void> create(@Validated @RequestBody RiderSaveDTO dto) {
         riderService.create(dto);
@@ -52,7 +52,7 @@ public class RiderController {
     }
 
     @Operation(summary = "修改骑手（姓名/手机号/0停用 1在岗；停用即禁登录）")
-    @OpLog(module = "骑手", action = "修改")
+    @OpLog(module = "配送", action = "修改")
     @PutMapping("/{id}")
     public Result<Void> update(@PathVariable Long id, @Validated @RequestBody RiderUpdateDTO dto) {
         riderService.update(id, dto);
@@ -68,7 +68,7 @@ public class RiderController {
     }
 
     @Operation(summary = "指派骑手（校验在岗；0未分配 -> 1配送中）")
-    @OpLog(module = "骑手", action = "指派配送单")
+    @OpLog(module = "配送", action = "指派配送单")
     @PostMapping("/assign")
     public Result<Void> assign(@Validated @RequestBody RiderAssignDTO dto) {
         riderService.assign(dto);
@@ -76,7 +76,7 @@ public class RiderController {
     }
 
     @Operation(summary = "标记送达（1配送中 -> 2已送达，订单同步已完成）")
-    @OpLog(module = "骑手", action = "标记送达")
+    @OpLog(module = "配送", action = "标记送达")
     @PostMapping("/{orderId}/deliver")
     public Result<Void> deliver(@PathVariable Long orderId) {
         riderService.deliver(orderId);

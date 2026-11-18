@@ -80,8 +80,9 @@ public class OrderTxService {
     public OrderInfo createOrderInTransaction(Long userId, OrderCreateDTO dto,
                                               List<DishVO> dishList,
                                               CouponVO selectedCoupon, Long couponUserCouponId,
-                                              BigDecimal total, BigDecimal discount, BigDecimal pay) {
-        return createOne(userId, dto, dishList, couponUserCouponId, total, discount, pay, null);
+                                              BigDecimal total, BigDecimal discount, BigDecimal pay,
+                                              BigDecimal deliveryFee) {
+        return createOne(userId, dto, dishList, couponUserCouponId, total, discount, pay, deliveryFee, null);
     }
 
     /** 跨档口批量下单：所有子单共用一个事务，任一失败全部回滚 */
@@ -90,7 +91,7 @@ public class OrderTxService {
         List<OrderInfo> created = new ArrayList<>();
         for (OrderContext c : contexts) {
             created.add(createOne(userId, c.dto, c.dishes, c.couponUserCouponId,
-                    c.total, c.discount, c.pay, batchNo));
+                    c.total, c.discount, c.pay, c.deliveryFee, batchNo));
         }
         return created;
     }
@@ -103,21 +104,23 @@ public class OrderTxService {
         public final BigDecimal total;
         public final BigDecimal discount;
         public final BigDecimal pay;
+        public final BigDecimal deliveryFee;
 
         public OrderContext(OrderCreateDTO dto, List<DishVO> dishes, Long couponUserCouponId,
-                            BigDecimal total, BigDecimal discount, BigDecimal pay) {
+                            BigDecimal total, BigDecimal discount, BigDecimal pay, BigDecimal deliveryFee) {
             this.dto = dto;
             this.dishes = dishes;
             this.couponUserCouponId = couponUserCouponId;
             this.total = total;
             this.discount = discount;
             this.pay = pay;
+            this.deliveryFee = deliveryFee;
         }
     }
 
     private OrderInfo createOne(Long userId, OrderCreateDTO dto, List<DishVO> dishList,
                                 Long couponUserCouponId, BigDecimal total, BigDecimal discount,
-                                BigDecimal pay, String batchNo) {
+                                BigDecimal pay, BigDecimal deliveryFee, String batchNo) {
         Long stallId = dishList.get(0).getStallId();
         boolean delivery = dto.getDeliveryType() != null && dto.getDeliveryType() == 1;
 
@@ -140,6 +143,7 @@ public class OrderTxService {
         order.setTotalAmount(total);
         order.setDiscountAmount(discount);
         order.setPayAmount(pay);
+        order.setDeliveryFee(deliveryFee == null ? BigDecimal.ZERO : deliveryFee);
         order.setUserCouponId(couponUserCouponId);
         order.setBatchNo(batchNo);
         order.setStatus(0);
@@ -195,7 +199,7 @@ public class OrderTxService {
         if (orderStall != null && orderStall.getMerchantUserId() != null) {
             messageSender.send(orderStall.getMerchantUserId(), "收到新订单 🍜",
                     "来自同学 #" + userId + "，实付 ¥" + pay
-                            + (delivery ? "（配送单，骑手可在大厅抢单）" : "（取餐码 " + order.getPickupCode() + "），请及时备餐"),
+                            + (delivery ? "（配送单，校园配送员可在跑腿大厅接单）" : "（取餐码 " + order.getPickupCode() + "），请及时备餐"),
                     com.canteen.common.MessageSender.TYPE_ORDER);
         }
         return order;

@@ -44,6 +44,17 @@ SET @sql := IF(@col = 0,
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 UPDATE dish SET is_limited = 1 WHERE daily_stock > 0 AND is_limited = 0;
 
+-- 3c) 配送到寝室的跑腿费（担保交易：下单时收取，送达后结算给配送员）
+SET @col := (SELECT COUNT(*) FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'order_info' AND COLUMN_NAME = 'delivery_fee');
+SET @sql := IF(@col = 0,
+    'ALTER TABLE `order_info` ADD COLUMN `delivery_fee` DECIMAL(8,2) NOT NULL DEFAULT 0.00 COMMENT ''跑腿费(担保交易,送达后结算配送员)'' AFTER `pay_amount`',
+    'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 3d) 配送单没有取餐码，pickup_code 必须允许 NULL（原 schema 写成 NOT NULL 是历史遗留 bug）
+ALTER TABLE `order_info` MODIFY COLUMN `pickup_code` VARCHAR(8) NULL COMMENT '取餐码(自取单;配送单为NULL)';
+
 -- 4) 操作日志落库表
 CREATE TABLE IF NOT EXISTS `sys_operation_log` (
     `id`          BIGINT PRIMARY KEY AUTO_INCREMENT,

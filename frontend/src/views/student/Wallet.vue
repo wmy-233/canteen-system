@@ -92,8 +92,8 @@ const rechargeConfirm = ref(false)
 const recharging = ref(false)
 const amount = ref(50)
 
-const typeName = (t) => ({ 1: '充值', 2: '消费', 3: '退款' }[t] || '其他')
-const typeStyle = (t) => ({ 1: 'success', 2: 'warning', 3: 'info' }[t] || 'info')
+const typeName = (t) => ({ 1: '充值', 2: '消费', 3: '退款', 4: '跑腿收入' }[t] || '其他')
+const typeStyle = (t) => ({ 1: 'success', 2: 'warning', 3: 'info', 4: 'success' }[t] || 'info')
 
 async function load() {
   loading.value = true
