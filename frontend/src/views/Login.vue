@@ -8,7 +8,7 @@
       <span v-for="n in 12" :key="n" class="bubble">{{ portalEmoji }}</span>
     </div>
 
-    <!-- 三端门户选择 -->
+    <!-- 四端门户选择 -->
     <div class="portal-bar">
       <button
         v-for="p in portals" :key="p.key" type="button"
@@ -43,11 +43,16 @@
         </el-form-item>
       </el-form>
 
-      <div class="divider"><span>还没有账号？</span></div>
-      <el-button v-if="userStore.portal !== 'ADMIN'" class="register-btn" text type="primary" @click="openRegister">
-        {{ userStore.portal === 'STUDENT' ? '注册一个新账号，开启校园食光 ✨' : '商家入驻申请（提交后等管理员审核） 🏪' }}
-      </el-button>
-      <div v-else class="admin-note">🔒 管理员账号不开放注册，由超级管理员在「用户管理」中授权</div>
+      <!-- 仅学生/商家开放自助注册；骑手账号由管理员在「骑手管理」中录入，不开放注册 -->
+      <template v-if="userStore.portal === 'STUDENT' || userStore.portal === 'MERCHANT'">
+        <div class="divider"><span>还没有账号？</span></div>
+        <el-button class="register-btn" text type="primary" @click="openRegister">
+          {{ userStore.portal === 'STUDENT' ? '注册一个新账号，开启校园食光 ✨' : '商家入驻申请（提交后等管理员审核） 🏪' }}
+        </el-button>
+      </template>
+      <div v-else class="admin-note">
+        {{ userStore.portal === 'RIDER' ? '🛵 校园配送员账号由管理员统一录入，不开放自助注册' : '🔒 管理员账号不开放注册，由超级管理员在「用户管理」中授权' }}
+      </div>
 
       <!-- 演示账号一键填入 -->
       <div class="demo-row">
@@ -182,6 +187,8 @@ async function loadCanteens() {
 }
 
 function openRegister() {
+  // 学生/商家之外的门户（骑手、管理员）不开放注册，防御性拦截
+  if (userStore.portal !== 'STUDENT' && userStore.portal !== 'MERCHANT') return
   Object.assign(regForm, { username: '', nickname: '', password: '', stallName: '', canteenId: undefined, phone: '' })
   if (userStore.portal === 'MERCHANT' && canteenOptions.value.length === 0) loadCanteens()
   showRegister.value = true
@@ -205,7 +212,10 @@ function goHome(userInfo) {
   if (userInfo.role !== userStore.portal && PORTALS[userInfo.role]) {
     ElMessage.info(`你的身份是${PORTALS[userInfo.role].label}，已为你切换`)
   }
-  const target = route.query.redirect || ROLE_HOME[userInfo.role] || '/'
+  // redirect 必须属于当前角色的首页前缀，否则忽略，避免登录后再被路由守卫弹回
+  const redirect = route.query.redirect
+  const home = ROLE_HOME[userInfo.role] || '/'
+  const target = typeof redirect === 'string' && redirect.startsWith(home + '/') ? redirect : home
   router.replace(target)
 }
 
@@ -223,6 +233,8 @@ async function handleLogin() {
 }
 
 async function handleRegister() {
+  // 兜底：即使弹窗被意外触发，也不允许非学生/商家门户提交注册
+  if (userStore.portal !== 'STUDENT' && userStore.portal !== 'MERCHANT') return
   await regFormRef.value.validate().catch(() => Promise.reject())
   regLoading.value = true
   try {
@@ -260,6 +272,7 @@ async function handleRegister() {
 }
 .login-page.p-MERCHANT { --ac: #a98467; --ac-soft: #bb9984; --ac-glow: rgba(169, 132, 103, 0.55); }
 .login-page.p-ADMIN   { --ac: #7e94a8; --ac-soft: #97aabb; --ac-glow: rgba(126, 148, 168, 0.55); }
+.login-page.p-RIDER   { --ac: #7a9b8e; --ac-soft: #94b2a6; --ac-glow: rgba(122, 155, 142, 0.55); }
 
 .login-page {
   position: relative;
@@ -336,7 +349,7 @@ async function handleRegister() {
 .bubble:nth-child(11n)  { left: 50%; animation-duration: 23s; animation-delay: -18s; font-size: 21px; }
 .bubble:nth-child(12n)  { left: 70%; animation-duration: 15s; animation-delay: -13s; }
 
-/* ---------- 三端门户选择条 ---------- */
+/* ---------- 四端门户选择条 ---------- */
 .portal-bar {
   display: flex;
   gap: 14px;
@@ -367,6 +380,7 @@ async function handleRegister() {
 .portal-tab.active.STUDENT { border-color: #93977a; background: rgba(147, 151, 122, 0.13); box-shadow: 0 6px 16px rgba(147, 151, 122, 0.3); }
 .portal-tab.active.MERCHANT { border-color: #a98467; background: rgba(169, 132, 103, 0.12); box-shadow: 0 6px 16px rgba(169, 132, 103, 0.3); }
 .portal-tab.active.ADMIN { border-color: #7e94a8; background: rgba(126, 148, 168, 0.13); box-shadow: 0 6px 16px rgba(126, 148, 168, 0.3); }
+.portal-tab.active.RIDER { border-color: #7a9b8e; background: rgba(122, 155, 142, 0.13); box-shadow: 0 6px 16px rgba(122, 155, 142, 0.3); }
 
 /* ---------- 登录卡片 ---------- */
 .login-card {

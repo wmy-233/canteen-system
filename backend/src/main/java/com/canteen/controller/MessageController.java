@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 /**
- * 站内消息中心（登录即可访问，三端共用）
+ * 站内消息中心（登录即可访问，四端共用）
  */
 @Tag(name = "站内消息")
 @RestController

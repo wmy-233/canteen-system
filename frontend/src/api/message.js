@@ -1,6 +1,6 @@
 import request from './request'
 
-// 站内消息中心（三端共用）
+// 站内消息中心（四端共用）
 export const messagePage = (params) => request.get('/message/page', { params })
 export const messageUnreadCount = () => request.get('/message/unread-count')
 export const messageRead = (id) => request.post(`/message/${id}/read`)

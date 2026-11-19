@@ -45,8 +45,8 @@
       </main>
     </div>
 
-    <!-- 智能助手：胆子肥嘟嘟 -->
-    <Dududu />
+    <!-- 智能助手：胆子肥嘟嘟（学生点餐助手，仅学生端展示） -->
+    <Dududu v-if="userStore.role === 'STUDENT'" />
   </div>
 </template>
 
@@ -107,14 +107,14 @@ const ROLE_META = {
   STUDENT: { label: '学生端', type: 'success' },
   MERCHANT: { label: '商家端', type: 'warning' },
   ADMIN: { label: '管理端', type: 'danger' },
-  RIDER: { label: '校园配送端', type: 'primary' }
+  RIDER: { label: '校园配送端', type: 'success' }
 }
 
 const roleLabel = computed(() => ROLE_META[userStore.role]?.label || userStore.role)
 const roleType = computed(() => ROLE_META[userStore.role]?.type || 'info')
 const avatarLetter = computed(() => (userStore.userInfo?.nickname || userStore.userInfo?.username || '友').slice(0, 1))
 
-// 三端差异化：专属图标、品牌文案、主题色
+// 四端差异化：专属图标、品牌文案、主题色
 const ROLE_THEME = {
   STUDENT: { emoji: '🍱', feature: '学生端', accent: '#93977a', accentSoft: '#a4a88b' },
   MERCHANT: { emoji: '🏪', feature: '商家端', accent: '#a98467', accentSoft: '#bb9984' },
@@ -157,17 +157,18 @@ onBeforeUnmount(() => { if (msgTimer) clearInterval(msgTimer) });
 
 <style scoped>
 /* ---- 鼠尾草绿莫兰迪色板：主色 #93977A / 米白底 #F5F3EA / 墨绿文字 #5E5F4E ----
-   主题色随角色变化：学生=鼠尾草绿 商家=莫兰迪驼金 管理=雾蓝灰 */
+   主题色随角色变化：学生=鼠尾草绿 商家=莫兰迪驼金 管理=雾蓝灰 骑手=青瓷绿 */
 .frame-layout {
   height: 100vh;
   display: flex;
   flex-direction: column;
   background: #f4f3ec;
 }
-/* 三个端各自的沉浸式内容区底色（微弱差异，一眼可辨）+ 主题变量 */
+/* 四个端各自的沉浸式内容区底色（微弱差异，一眼可辨）+ 主题变量 */
 .frame-layout.t-STUDENT { --ac: #93977a; --ac-soft: #83886a; --ac-glow: rgba(147, 151, 122, 0.45); background: linear-gradient(180deg, #f3f3e9 0%, #f6f5ee 240px, #f4f3ec 100%); }
 .frame-layout.t-MERCHANT { --ac: #a98467; --ac-soft: #96735a; --ac-glow: rgba(169, 132, 103, 0.45); background: linear-gradient(180deg, #f5f0ea 0%, #f6f4f0 240px, #f4f2ee 100%); }
 .frame-layout.t-ADMIN { --ac: #7e94a8; --ac-soft: #6d8093; --ac-glow: rgba(126, 148, 168, 0.45); background: linear-gradient(180deg, #eff2f2 0%, #f3f4f1 240px, #f2f2ec 100%); }
+.frame-layout.t-RIDER { --ac: #7a9b8e; --ac-soft: #6f8f81; --ac-glow: rgba(122, 155, 142, 0.45); background: linear-gradient(180deg, #eef3f0 0%, #f3f6f3 240px, #f2f5f2 100%); }
 
 /* 顶栏 */
 .header {
@@ -190,25 +191,9 @@ onBeforeUnmount(() => { if (msgTimer) clearInterval(msgTimer) });
   background: linear-gradient(120deg, #fcfdfd 0%, #f4f7f7 100%);
   border-bottom-color: #dae1e2;
 }
-.frame-layout {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: #f5f3ea;
-}
-
-/* 顶栏 */
-.header {
-  height: 58px;
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 22px;
-  background: #ffffffee;
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid #e4e2d3;
-  box-shadow: 0 2px 12px rgba(147, 151, 122, 0.14);
+.t-RIDER .header {
+  background: linear-gradient(120deg, #fbfdfc 0%, #f2f7f4 100%);
+  border-bottom-color: #dbe6e0;
 }
 .brand {
   display: flex;

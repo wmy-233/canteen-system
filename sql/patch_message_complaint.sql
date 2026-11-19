@@ -2,7 +2,7 @@
 -- 站内消息 + 投诉工单模块 数据库补丁 patch_message_complaint.sql
 -- 依赖：sql/schema.sql + init_data.sql (+ patch_rider.sql) 已执行
 -- 作用：
---   1. sys_message 站内消息表（三端铃铛消息中心）
+--   1. sys_message 站内消息表（四端铃铛消息中心）
 --   2. complaint 投诉工单表（学生投诉→商家回应→管理员裁定）
 -- 注意：组员 C 需把本文件合入 schema.sql（组规：结构变更须同步）
 -- ============================================================
