@@ -50,11 +50,13 @@
     <update id="deductBalance">
         UPDATE `user`
         SET balance = balance - #{amount}
-        WHERE id = #{id} AND balance &gt;= #{amount}
+        WHERE id = #{id} AND balance &gt;= #{amount} AND #{amount} &gt;= 0
     </update>
 
     <update id="addBalance">
-        UPDATE `user` SET balance = balance + #{amount} WHERE id = #{id}
+        UPDATE `user`
+        SET balance = balance + #{amount}
+        WHERE id = #{id} AND #{amount} &gt;= 0
     </update>
 
 </mapper>

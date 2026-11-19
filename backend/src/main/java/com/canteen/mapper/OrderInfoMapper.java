@@ -46,6 +46,9 @@ public interface OrderInfoMapper {
     /** 投诉成立退款：任意未完成状态 -> 2已退款/取消（防止重复退款） */
     int markRefunded(@Param("id") Long id);
 
+    /** 取消未送达配送单：配送状态回滚为 3已取消并清空骑手，避免滞留待分配列表 */
+    int cancelDelivery(@Param("id") Long id);
+
     /** 骑手端：我接的配送单 */
     List<OrderVO> selectMyDelivery(@Param("riderId") Long riderId);
 }

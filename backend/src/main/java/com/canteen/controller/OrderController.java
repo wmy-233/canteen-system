@@ -10,6 +10,8 @@ import com.canteen.vo.OrderVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+
+import javax.validation.Valid;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -42,7 +44,7 @@ public class OrderController {
     @Operation(summary = "跨档口批量下单：一个事务创建全部子单，任一失败全部回滚")
     @OpLog(module = "订单", action = "批量下单")
     @PostMapping("/batch")
-    public Result<List<OrderCreateVO>> batch(@Validated @RequestBody List<OrderCreateDTO> dtos) {
+    public Result<List<OrderCreateVO>> batch(@Valid @RequestBody List<@Valid OrderCreateDTO> dtos) {
         return Result.success(orderService.createBatch(dtos));
     }
 

@@ -122,22 +122,24 @@
         SET daily_stock = daily_stock - #{quantity}
         WHERE id = #{id}
           AND daily_stock &gt;= #{quantity}
+          AND #{quantity} &gt; 0
     </update>
 
     <update id="increaseSaleCount">
         UPDATE dish
         SET sale_count = sale_count + #{quantity}
-        WHERE id = #{id}
+        WHERE id = #{id} AND #{quantity} &gt; 0
     </update>
 
     <!-- 退款回滚：补回限量菜库存 -->
     <update id="increaseStock">
-        UPDATE dish SET daily_stock = daily_stock + #{quantity} WHERE id = #{id}
+        UPDATE dish SET daily_stock = daily_stock + #{quantity} WHERE id = #{id} AND #{quantity} &gt; 0
     </update>
 
     <!-- 退款回滚：扣回销量（不低于 0） -->
     <update id="decreaseSaleCount">
-        UPDATE dish SET sale_count = GREATEST(sale_count - #{quantity}, 0) WHERE id = #{id}
+        UPDATE dish SET sale_count = GREATEST(sale_count - #{quantity}, 0)
+        WHERE id = #{id} AND #{quantity} &gt; 0
     </update>
 
     <select id="selectDailyStock" resultType="int">

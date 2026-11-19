@@ -2,7 +2,7 @@
 -- 骑手模块数据库补丁 patch_rider.sql（组长 A 于阶段 3 生成）
 -- 依赖：sql/schema.sql 与 sql/init_data.sql 已执行
 -- 作用：A11 骑手管理功能的表结构与基础数据
---  ⊕ rider 表 / ⊕ order_info 配送三列 / ⊕ RIDER 角色与权限点 / 演示骑手与待分配配送单
+--  ⊕ rider 表 / ⊕ order_info 配送四列 / ⊕ RIDER 角色与权限点 / 演示骑手与待分配配送单
 -- 注意：
 --   1. ALTER TABLE 不防重复：重复执行会报 Duplicate column，忽略即可（本补丁一次性）
 --   2. 组员 C 需把本文件合入 schema.sql / init_data.sql（组规：结构变更须同步），
@@ -74,27 +74,30 @@ WHERE u.username = 'rider2'
 
 -- ------------------------------------------------------------
 -- 6. 演示数据：2 笔“待分配”配送单（学生账号自下单，便于 B9 页面与答辩演示）
---    学生余额 50.00 扣两单共 26.00；钱包流水同步留痕
+--    每笔含 2.00 跑腿费：牛肉拉面 13+2=15.00，蛋炒饭 9+2=11.00，共扣 26.00
+--    配送单 pickup_code 为 NULL，送达地点非空；菜品价格与 init_data.sql 一致
 -- ------------------------------------------------------------
-INSERT INTO order_info (order_no, user_id, stall_id, total_amount, discount_amount, pay_amount, pickup_code, status, delivery_type, rider_id, delivery_status)
+INSERT INTO order_info (order_no, user_id, stall_id, total_amount, discount_amount, pay_amount, delivery_fee,
+                        pickup_code, status, delivery_type, rider_id, delivery_status, delivery_location)
 VALUES ('CT20261109090001', (SELECT id FROM `user` WHERE username='student'), 2,
-        13.00, 0.00, 13.00, '7777', 0, 1, NULL, 0);
+        13.00, 0.00, 15.00, 2.00, NULL, 0, 1, NULL, 0, '北区宿舍 3 栋 201');
 SET @order1 = LAST_INSERT_ID();
 
 INSERT INTO order_item (order_id, dish_id, dish_name, price, quantity)
 VALUES (@order1, 8, '牛肉拉面', 13.00, 1);
 
-INSERT INTO order_info (order_no, user_id, stall_id, total_amount, discount_amount, pay_amount, pickup_code, status, delivery_type, rider_id, delivery_status)
+INSERT INTO order_info (order_no, user_id, stall_id, total_amount, discount_amount, pay_amount, delivery_fee,
+                        pickup_code, status, delivery_type, rider_id, delivery_status, delivery_location)
 VALUES ('CT20261109090002', (SELECT id FROM `user` WHERE username='student'), 1,
-        14.00, 0.00, 14.00, '7778', 0, 1, NULL, 0);
+        9.00, 0.00, 11.00, 2.00, NULL, 0, 1, NULL, 0, '图书馆一层阅览区');
 SET @order2 = LAST_INSERT_ID();
 
 INSERT INTO order_item (order_id, dish_id, dish_name, price, quantity)
-VALUES (@order2, 17, '蛋炒饭', 14.00, 1);
+VALUES (@order2, 17, '蛋炒饭', 9.00, 1);
 
 INSERT INTO wallet_record (user_id, type, amount, ref_order_no)
-SELECT u.id, 2, 13.00, 'CT20261109090001' FROM `user` u WHERE u.username = 'student';
+SELECT u.id, 2, 15.00, 'CT20261109090001' FROM `user` u WHERE u.username = 'student';
 INSERT INTO wallet_record (user_id, type, amount, ref_order_no)
-SELECT u.id, 2, 14.00, 'CT20261109090002' FROM `user` u WHERE u.username = 'student';
+SELECT u.id, 2, 11.00, 'CT20261109090002' FROM `user` u WHERE u.username = 'student';
 
-UPDATE `user` SET balance = balance - 27.00 WHERE username = 'student';
+UPDATE `user` SET balance = balance - 26.00 WHERE username = 'student';

@@ -37,4 +37,10 @@ public interface OrderService {
 
     /** 商家核销：0待处理 -> 1已完成（仅自取单，配送单走管理员骑手流转） */
     void verify(Long merchantUserId, Long orderId);
+
+    /**
+     * 扫码核销：在普通核销基础上校验二维码载荷（订单号/取餐码/有效期）。
+     * payload 为空时兼容旧的手工核销调用。
+     */
+    void verify(Long merchantUserId, Long orderId, String scanPayload);
 }

@@ -1,5 +1,6 @@
 package com.canteen.service;
 
+import com.canteen.common.BizException;
 import com.canteen.dto.OrderCreateDTO;
 import com.canteen.entity.OrderInfo;
 import com.canteen.entity.OrderItem;
@@ -123,10 +124,16 @@ public class OrderTxService {
                                 BigDecimal pay, BigDecimal deliveryFee, String batchNo) {
         Long stallId = dishList.get(0).getStallId();
         boolean delivery = dto.getDeliveryType() != null && dto.getDeliveryType() == 1;
+        if (pay == null || pay.compareTo(BigDecimal.ZERO) < 0) {
+            throw new BizException("订单金额异常，落库已中止");
+        }
 
         // 1. 限量菜条件更新扣库（第三重保险：影响行数=0 即失败回滚）
         for (DishVO dish : dishList) {
             int quantity = quantityOf(dto, dish.getId());
+            if (quantity < 1 || quantity > 99) {
+                throw new BizException("下单数量非法，落库已中止");
+            }
             if (dish.getDailyStock() != null && dish.getDailyStock() > 0) {
                 int rows = dishMapper.decreaseStockConditional(dish.getId(), quantity);
                 if (rows == 0) {
@@ -216,6 +223,7 @@ public class OrderTxService {
         if (rows == 0) {
             throw new com.canteen.common.BizException("订单状态已变化，取消失败");
         }
+        orderInfoMapper.cancelDelivery(order.getId());
         refundBalance(order);
         rollbackOrderEffects(order);
 

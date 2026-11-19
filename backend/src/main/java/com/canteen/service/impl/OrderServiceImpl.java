@@ -32,9 +32,11 @@ import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -132,6 +134,9 @@ public class OrderServiceImpl implements OrderService {
         java.util.Set<Long> usedCoupons = new java.util.HashSet<>();
         List<OrderTxService.OrderContext> contexts = new ArrayList<>();
         for (OrderCreateDTO dto : dtos) {
+            if (dto == null) {
+                throw new BizException("下单明细不能为空");
+            }
             OrderTxService.OrderContext ctx = prepare(dto, userId, dtos.size() == 1);
             if (ctx.couponUserCouponId != null && !usedCoupons.add(ctx.couponUserCouponId)) {
                 ctx = new OrderTxService.OrderContext(ctx.dto, ctx.dishes, null,
@@ -192,8 +197,30 @@ public class OrderServiceImpl implements OrderService {
         if (items == null || items.isEmpty()) {
             throw new BizException("下单明细不能为空");
         }
+        if (items.size() > 99) {
+            throw new BizException("单笔订单菜品过多");
+        }
+        Set<Long> seenDishIds = new HashSet<>();
+        for (OrderCreateDTO.Item item : items) {
+            if (item == null || item.getDishId() == null || item.getQuantity() == null) {
+                throw new BizException("下单参数不完整");
+            }
+            if (item.getQuantity() < 1 || item.getQuantity() > 99) {
+                throw new BizException("单品数量必须在 1 到 99 之间");
+            }
+            if (!seenDishIds.add(item.getDishId())) {
+                throw new BizException("同一菜品请勿重复添加，请修改数量后下单");
+            }
+        }
         if (dto.getDeliveryType() == null) {
             dto.setDeliveryType(0);
+        }
+        if (dto.getDeliveryType() != 0 && dto.getDeliveryType() != 1) {
+            throw new BizException("就餐方式非法");
+        }
+        if (dto.getDeliveryType() == 1 && dto.getDeliveryLocation() != null
+                && dto.getDeliveryLocation().trim().length() > 100) {
+            throw new BizException("送达地点过长");
         }
 
         // 菜品校验：在售、同档口、档口营业
@@ -249,6 +276,9 @@ public class OrderServiceImpl implements OrderService {
         BigDecimal deliveryFee = (dto.getDeliveryType() != null && dto.getDeliveryType() == 1)
                 ? DELIVERY_FEE : BigDecimal.ZERO;
         BigDecimal pay = total.subtract(discount).max(BigDecimal.ZERO).add(deliveryFee);
+        if (total.compareTo(BigDecimal.ZERO) <= 0 || pay.compareTo(BigDecimal.ZERO) < 0) {
+            throw new BizException("订单金额异常，请检查菜品价格后重试");
+        }
 
         return new OrderTxService.OrderContext(dto, dishes, couponRecordId, total, discount, pay, deliveryFee);
     }
@@ -305,6 +335,11 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public void verify(Long merchantUserId, Long orderId) {
+        verify(merchantUserId, orderId, null);
+    }
+
+    @Override
+    public void verify(Long merchantUserId, Long orderId, String scanPayload) {
         OrderInfo order = orderInfoMapper.selectById(orderId);
         if (order == null) throw new BizException("订单不存在");
         Stall stall = stallMapper.selectById(order.getStallId());
@@ -315,6 +350,12 @@ public class OrderServiceImpl implements OrderService {
         if (order.getDeliveryType() != null && order.getDeliveryType() == 1) {
             throw new BizException("配送单由校园配送员流转，无需档口核销");
         }
+        if (order.getPickupCode() == null || order.getPickupCode().trim().isEmpty()) {
+            throw new BizException("订单无有效取餐码，无法核销");
+        }
+        if (scanPayload != null && !scanPayload.trim().isEmpty()) {
+            validateScanPayload(order, scanPayload.trim());
+        }
         if (orderInfoMapper.updateStatusConditional(orderId, 0, 1) == 0) {
             throw new BizException("订单状态已变化，核销失败");
         }
@@ -322,7 +363,29 @@ public class OrderServiceImpl implements OrderService {
                 "档口已完成订单 " + order.getOrderNo() + "，取餐码 "
                         + order.getPickupCode() + "，请在取餐处出示该码",
                 com.canteen.common.MessageSender.TYPE_ORDER);
-        log.info("核销出餐: orderId={}, 取餐码={}, operator={}", orderId, order.getPickupCode(), merchantUserId);
+        log.info("核销出餐: orderId={}, 取餐码={}, operator={}, 扫码校验={}", orderId,
+                order.getPickupCode(), merchantUserId, scanPayload != null);
+    }
+
+    /** 服务端校验二维码载荷：CANTEEN|订单号|取餐码|过期时间戳（允许 60 秒时钟偏差） */
+    private void validateScanPayload(OrderInfo order, String payload) {
+        String[] parts = payload.split("\\|", -1);
+        if (parts.length != 4 || !"CANTEEN".equals(parts[0])) {
+            throw new BizException("二维码格式不正确");
+        }
+        if (!order.getOrderNo().equals(parts[1]) || !order.getPickupCode().equals(parts[2])) {
+            throw new BizException("二维码与当前订单不匹配");
+        }
+        long expire;
+        try {
+            expire = Long.parseLong(parts[3]);
+        } catch (NumberFormatException e) {
+            throw new BizException("二维码已损坏");
+        }
+        long now = System.currentTimeMillis();
+        if (expire < now || expire > now + 6 * 60 * 1000L) {
+            throw new BizException("二维码已过期或有效期异常，请让学生重新出示");
+        }
     }
 
     // ---------------- internal ----------------

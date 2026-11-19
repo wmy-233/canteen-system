@@ -75,7 +75,7 @@
 
     <select id="selectPageDelivery" resultType="com.canteen.vo.OrderVO">
         <include refid="orderVoSelect"/>
-        WHERE o.delivery_type = 1
+        WHERE o.delivery_type = 1 AND o.status = 0
         <if test="deliveryStatus != null">
             AND o.delivery_status = #{deliveryStatus}
         </if>
@@ -111,9 +111,22 @@
         WHERE id = #{id} AND delivery_status = 1 AND status = 0
     </update>
 
-    <!-- 投诉成立退款：置为已退款，防止重复退款 -->
+    <!-- 投诉成立退款：置为已退款，未送达配送单同步置为 3已取消，防止重复退款/重复指派 -->
     <update id="markRefunded">
-        UPDATE order_info SET status = 2 WHERE id = #{id} AND status IN (0, 1)
+        UPDATE order_info
+        SET status = 2,
+            delivery_status = CASE
+                WHEN delivery_type = 1 AND delivery_status &lt; 2 THEN 3
+                ELSE delivery_status
+            END
+        WHERE id = #{id} AND status IN (0, 1)
+    </update>
+
+    <!-- 学生取消未送达配送单：配送状态回滚为 3已取消 -->
+    <update id="cancelDelivery">
+        UPDATE order_info
+        SET delivery_status = 3, rider_id = NULL
+        WHERE id = #{id} AND delivery_type = 1 AND delivery_status &lt; 2
     </update>
 
     <!-- 骑手端：我的配送单（含已送达） -->

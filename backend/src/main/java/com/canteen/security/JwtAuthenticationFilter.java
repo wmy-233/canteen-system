@@ -1,6 +1,8 @@
 package com.canteen.security;
 
+import com.canteen.entity.User;
 import com.canteen.mapper.RoleMapper;
+import com.canteen.mapper.UserMapper;
 import com.canteen.util.JwtUtil;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
@@ -19,7 +21,6 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -28,8 +29,8 @@ import java.util.stream.Collectors;
  *
  * 职责划分：
  *   1. 无 token         -> 不设置认证信息，交给 SecurityConfig 的路径规则判定（放行或 401）
- *   2. token 有效       -> 从数据库加载最新角色后写入 SecurityContext
- *                          （角色以数据库为准：管理员禁用账号/调整角色后，旧 token 立即失效）
+ *   2. token 有效       -> 校验数据库账号状态并加载最新角色后写入 SecurityContext
+ *                          （状态与角色以数据库为准：禁用账号/调整角色后旧 token 立即失效）
  *   3. token 无效/过期  -> 不在此处写响应，交给 SecurityConfig 的认证入口点统一返回 401
  */
 @Slf4j
@@ -39,6 +40,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
     private final RoleMapper roleMapper;
+    private final UserMapper userMapper;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
@@ -55,11 +57,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String username = claims.getSubject();
 
             if (userId != null) {
-                // 角色以数据库为准，token 中的 role 仅作兜底
+                // 账号状态与角色一律以数据库为准：禁用账号/改角色后旧 token 立即失效
+                User user = userMapper.selectById(userId);
+                if (user == null || user.getStatus() == null || user.getStatus() != 1) {
+                    log.warn("账号已禁用或不存在，拒绝带 token 请求: userId={}, uri={}", userId, request.getRequestURI());
+                    filterChain.doFilter(request, response);
+                    return;
+                }
                 List<String> roles = roleMapper.selectRoleCodesByUserId(userId);
                 if (roles.isEmpty()) {
-                    String tokenRole = claims.get("role", String.class);
-                    roles = tokenRole != null ? List.of(tokenRole) : Collections.emptyList();
+                    log.warn("账号无有效角色，拒绝带 token 请求: userId={}, uri={}", userId, request.getRequestURI());
+                    filterChain.doFilter(request, response);
+                    return;
                 }
 
                 List<SimpleGrantedAuthority> authorities = roles.stream()

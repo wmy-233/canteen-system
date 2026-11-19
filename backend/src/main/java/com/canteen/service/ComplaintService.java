@@ -5,9 +5,12 @@ import com.canteen.common.MessageSender;
 import com.canteen.common.SecurityUtil;
 import com.canteen.entity.Complaint;
 import com.canteen.entity.OrderInfo;
+import com.canteen.entity.Rider;
 import com.canteen.entity.Stall;
+import com.canteen.entity.WalletRecord;
 import com.canteen.mapper.ComplaintMapper;
 import com.canteen.mapper.OrderInfoMapper;
+import com.canteen.mapper.RiderMapper;
 import com.canteen.mapper.StallMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,8 +37,10 @@ public class ComplaintService {
     private final StallMapper stallMapper;
     private final com.canteen.mapper.UserMapper userMapper;
     private final com.canteen.mapper.WalletRecordMapper walletRecordMapper;
+    private final RiderMapper riderMapper;
     private final OrderTxService orderTxService;
     private final MessageSender messages;
+    private final RedisSupport redisSupport;
 
     // ---------------- 学生 ----------------
 
@@ -126,6 +131,13 @@ public class ComplaintService {
      */
     @Transactional(rollbackFor = Exception.class)
     public void resolve(Long complaintId, boolean pass, String verdict, boolean doRefund) {
+        redisSupport.withLock("lock:complaint:resolve:" + complaintId, 8, () -> {
+            doResolve(complaintId, pass, verdict, doRefund);
+            return null;
+        });
+    }
+
+    private void doResolve(Long complaintId, boolean pass, String verdict, boolean doRefund) {
         Long adminId = SecurityUtil.getUserId();
         Complaint c = complaintMapper.selectById(complaintId);
         if (c == null) {
@@ -139,29 +151,36 @@ public class ComplaintService {
         String orderNo = order != null ? order.getOrderNo() : ("#" + c.getOrderId());
 
         if (pass) {
-            // 成立：默认全额退款（订单实付），退款已全部退款的单子（已取消）跳过
+            // 成立且勾选退款：先抢订单状态（条件更新），抢不到的并发请求直接失败，绝不重复入账
             if (doRefund && order != null && order.getStatus() != null && order.getStatus() != 2) {
-                // 跑腿费是配送服务的报酬，送达后已结算给配送员，投诉退款只退菜品部分
-                refundAmount = order.getPayAmount() == null ? BigDecimal.ZERO : order.getPayAmount();
-                if (order.getDeliveryFee() != null) {
-                    refundAmount = refundAmount.subtract(order.getDeliveryFee()).max(BigDecimal.ZERO);
+                if (orderInfoMapper.markRefunded(order.getId()) == 0) {
+                    throw new BizException("订单状态已变化，退款已处理");
+                }
+                BigDecimal fee = order.getDeliveryFee() == null ? BigDecimal.ZERO : order.getDeliveryFee();
+                boolean feeSettled = order.getDeliveryType() != null && order.getDeliveryType() == 1
+                        && Integer.valueOf(2).equals(order.getDeliveryStatus());
+                if (feeSettled && fee.compareTo(BigDecimal.ZERO) > 0) {
+                    // 已结算给配送员的跑腿费：从配送员钱包冲正，学生只退菜品部分
+                    clawbackDeliveryFee(order, fee);
+                    refundAmount = order.getPayAmount() == null ? BigDecimal.ZERO
+                            : order.getPayAmount().subtract(fee).max(BigDecimal.ZERO);
+                } else {
+                    // 未送达：跑腿费仍在平台冻结，全额原路退回
+                    refundAmount = order.getPayAmount() == null ? BigDecimal.ZERO : order.getPayAmount();
                 }
                 if (refundAmount.compareTo(BigDecimal.ZERO) > 0) {
-                    int rows = userMapper.addBalance(c.getStudentUserId(), refundAmount);
-                    if (rows == 0) {
+                    if (userMapper.addBalance(c.getStudentUserId(), refundAmount) == 0) {
                         throw new BizException("退款写入失败：投诉人账号不存在");
                     }
-                    com.canteen.entity.WalletRecord rec = new com.canteen.entity.WalletRecord();
+                    WalletRecord rec = new WalletRecord();
                     rec.setUserId(c.getStudentUserId());
                     rec.setType(3); // 退款
                     rec.setAmount(refundAmount);
                     rec.setRefOrderNo(orderNo);
                     walletRecordMapper.insert(rec);
-
-                    // 高分增强：投诉成立退款同样回滚库存/销量/券/Redis 余量，并关闭订单防止重复退款
-                    orderTxService.rollbackOrderEffects(order);
-                    orderInfoMapper.markRefunded(order.getId());
                 }
+                // 库存/销量/券/Redis 余量统一回滚
+                orderTxService.rollbackOrderEffects(order);
             }
         }
 
@@ -189,6 +208,29 @@ public class ComplaintService {
                     MessageSender.TYPE_COMPLAINT);
         }
         log.info("投诉裁定: complaintId={}, result={}, refund={}", complaintId, pass, refundAmount);
+    }
+
+    /** 已结算跑腿费的冲正：配送员钱包扣回并记一笔冲正流水；余额不足只告警，不阻塞学生退款 */
+    private void clawbackDeliveryFee(OrderInfo order, BigDecimal fee) {
+        if (order.getRiderId() == null) {
+            return;
+        }
+        Rider rider = riderMapper.selectById(order.getRiderId());
+        if (rider == null) {
+            return;
+        }
+        int rows = userMapper.deductBalance(rider.getUserId(), fee);
+        if (rows == 0) {
+            log.warn("跑腿费冲正失败：配送员余额不足 userId={}, fee={}, order={}",
+                    rider.getUserId(), fee, order.getOrderNo());
+            return;
+        }
+        WalletRecord rec = new WalletRecord();
+        rec.setUserId(rider.getUserId());
+        rec.setType(5); // 跑腿收入冲正
+        rec.setAmount(fee);
+        rec.setRefOrderNo(order.getOrderNo());
+        walletRecordMapper.insert(rec);
     }
 
     // ---------------- 超时自动升级（定时器 + 管理端手动触发共用） ----------------

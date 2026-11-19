@@ -40,8 +40,9 @@ public class MerchantOrderController {
     @Operation(summary = "核销出餐（按取餐码对应订单；仅自取单）")
     @OpLog(module = "商家", action = "核销出餐")
     @PostMapping("/{orderId}/verify")
-    public Result<Void> verify(@PathVariable Long orderId) {
-        orderService.verify(SecurityUtil.getUserId(), orderId);
+    public Result<Void> verify(@PathVariable Long orderId,
+                               @RequestParam(required = false) String payload) {
+        orderService.verify(SecurityUtil.getUserId(), orderId, payload);
         return Result.success();
     }
 }

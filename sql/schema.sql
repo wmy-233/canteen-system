@@ -174,7 +174,7 @@ CREATE TABLE IF NOT EXISTS `review` (
 CREATE TABLE IF NOT EXISTS `wallet_record` (
     `id`          BIGINT PRIMARY KEY AUTO_INCREMENT,
     `user_id`     BIGINT NOT NULL,
-    `type`        TINYINT NOT NULL COMMENT '1充值 2消费 3退款',
+    `type`        TINYINT NOT NULL COMMENT '1充值 2消费 3退款 4跑腿收入 5跑腿收入冲正',
     `amount`      DECIMAL(10,2) NOT NULL,
     `ref_order_no` VARCHAR(32) COMMENT '关联订单号',
     `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP

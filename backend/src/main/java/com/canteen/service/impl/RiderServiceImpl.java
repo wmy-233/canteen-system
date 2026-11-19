@@ -151,8 +151,10 @@ public class RiderServiceImpl implements RiderService {
         if (rows == 0) {
             throw new BizException("仅配送中的订单可标记送达");
         }
-        // 站内消息：通知学生已送达
+        // 与骑手端送达共用同一套担保结算逻辑，避免管理员送达漏结算跑腿费
         com.canteen.entity.OrderInfo order = orderInfoMapper.selectById(orderId);
+        settleDeliveryFee(order, order.getRiderId());
+        // 站内消息：通知学生已送达
         messageSender.send(order.getUserId(), "配送已完成 🎉",
                 "订单 " + order.getOrderNo() + " 已送达，祝用餐愉快！如遇问题可对该订单发起投诉",
                 com.canteen.common.MessageSender.TYPE_DELIVERY);
@@ -220,24 +222,35 @@ public class RiderServiceImpl implements RiderService {
         if (rows == 0) {
             throw new BizException("仅配送中的订单可标记送达");
         }
-        // 担保交易结算：学生支付的跑腿费在平台冻结，确认送达后才结算到配送员校园钱包
-        BigDecimal fee = order.getDeliveryFee() == null ? BigDecimal.ZERO : order.getDeliveryFee();
-        if (fee.compareTo(BigDecimal.ZERO) > 0) {
-            Rider rider = riderMapper.selectById(riderId);
-            if (rider != null) {
-                userMapper.addBalance(rider.getUserId(), fee);
-                WalletRecord income = new WalletRecord();
-                income.setUserId(rider.getUserId());
-                income.setType(4); // 4跑腿收入
-                income.setAmount(fee);
-                income.setRefOrderNo(order.getOrderNo());
-                walletRecordMapper.insert(income);
-            }
-        }
+        // 担保交易结算（管理员/骑手端统一口径）
+        settleDeliveryFee(order, riderId);
         messageSender.send(order.getUserId(), "配送已完成 🎉",
                 "订单 " + order.getOrderNo() + " 已送达，祝用餐愉快！如遇问题可对该订单发起投诉",
                 com.canteen.common.MessageSender.TYPE_DELIVERY);
-        log.info("校园配送员完成配送: orderId={}, riderId={}, 跑腿费结算={}", orderId, riderId, fee);
+        log.info("校园配送员完成配送: orderId={}, riderId={}, 跑腿费结算={}",
+                orderId, riderId, order.getDeliveryFee());
+    }
+
+    /** 跑腿费结算：仅送达成功后调用；按 riderId 查档案，管理员派单与骑手自主送达共用 */
+    private void settleDeliveryFee(OrderInfo order, Long riderId) {
+        BigDecimal fee = order.getDeliveryFee() == null ? BigDecimal.ZERO : order.getDeliveryFee();
+        if (riderId == null || fee.compareTo(BigDecimal.ZERO) <= 0) {
+            return;
+        }
+        Rider rider = riderMapper.selectById(riderId);
+        if (rider == null) {
+            return;
+        }
+        if (userMapper.addBalance(rider.getUserId(), fee) == 0) {
+            throw new BizException("配送员账号不存在，跑腿费结算失败");
+        }
+        WalletRecord income = new WalletRecord();
+        income.setUserId(rider.getUserId());
+        income.setType(4); // 4跑腿收入
+        income.setAmount(fee);
+        income.setRefOrderNo(order.getOrderNo());
+        walletRecordMapper.insert(income);
+        log.info("跑腿费结算: orderNo={}, riderUserId={}, fee={}", order.getOrderNo(), rider.getUserId(), fee);
     }
 
     private void checkOrderExists(Long orderId) {

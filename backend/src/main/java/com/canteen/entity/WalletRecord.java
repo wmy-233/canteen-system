@@ -15,7 +15,7 @@ public class WalletRecord {
 
     private Long userId;
 
-    /** 1充值 2消费 3退款 */
+    /** 1充值 2消费 3退款 4跑腿收入 5跑腿收入冲正 */
     private Integer type;
 
     private BigDecimal amount;
