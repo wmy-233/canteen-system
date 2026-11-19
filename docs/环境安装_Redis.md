@@ -2,6 +2,7 @@
 
 > 本组 Redis 统一用 Docker 跑，不再使用 Windows 原生版。
 > 口径：无密码（与 `application.yml` 对齐）、端口 6379、容器名 `canteen-redis`。
+> 当前用途：菜品库存预减（`dish:stock:*`）、库存锁（`lock:dish:stock:*`）、热销榜 ZSet（`rank:sale`）、配送抢单锁（`lock:delivery:grab:*`）。Redis 是增强器而非命脉，不可用时自动降级（见第 3 节）。
 
 ## 1. 启动（人人必做，1 分钟）
 
@@ -32,6 +33,6 @@ sc config Redis start= disabled
 |---|---|
 | `ping` 返回 `NOAUTH Authentication required` | 你的 Redis 设了密码（口径是无密码）：停用原生版，改用本仓库 Docker 版 |
 | 后端启动报 Redisson 连接失败 / 6379 被占用 | 原生 Redis 还在跑，见第 2 节 |
-| Docker Desktop 没开 | **后端仍能正常启动（降级模式）**：登录、浏览、下单等主流程不受影响；热销榜、防超卖分布式锁、限流等亮点功能不可用。开发/演示前记得先把 Docker Desktop 点开 |
+| Docker Desktop 没开 | **后端仍能正常启动（降级模式）**：登录、浏览、下单等主流程不受影响；热销榜、防超卖预减/锁、配送抢单锁退化为数据库条件更新（仍保证零超卖、一单只被抢一次）。开发/演示前记得先把 Docker Desktop 点开 |
 | 想重置 Redis 数据 | `docker compose down -v && docker compose up -d` |
 | 拉取镜像慢 | 配置 Docker Desktop 镜像加速，或手机热点重试一次 |

@@ -11,8 +11,9 @@
 docker compose up -d
 ```
 
-- 首次运行会自动建库 `canteen` + 执行全部建表和演示数据（schema.sql + init_data.sql）
+- 首次运行会自动建库 `canteen` + 执行基础脚本（`schema.sql` 16 张表 + `init_data.sql` 演示数据）
 - 连接参数**统一口径**：地址 `127.0.0.1:3306`，账号 `root`，密码 `123456`（与 application.yml 一致，不用改任何配置）
+- ⚠️ 基础脚本**不含**配送/投诉/消息/日志四张表。首次建库后需按顺序执行三个补丁（详见第 5 节），否则校园配送、投诉、消息中心、操作日志功能会因缺表报错
 
 ## 2. 方式一：Navicat 连接（推荐答辩演示用）
 
@@ -32,12 +33,17 @@ docker compose up -d
 
 | 表 | 看什么 |
 |---|---|
-| `user` | 4 个演示账号（admin/merchant/merchant2/student），password 列是 BCrypt 密文 |
-| `role` / `user_role` | 三角色 + 用户-角色绑定（RBAC 第一环） |
+| `user` | 6 个演示账号（admin/merchant/merchant2/student/rider1/rider2，后两个由补丁插入），password 列是 BCrypt 密文 |
+| `role` / `user_role` | 四角色（含补丁插入的 RIDER）+ 用户-角色绑定（RBAC 第一环） |
 | `menu` / `role_menu` | 权限点与角色-权限映射（RBAC 第二环） |
-| `dish` | 20 道演示菜；`daily_stock>0` = 限量菜（防超卖演示），`sale_count` 有梯度（热销榜演示） |
+| `dish` | 20 道演示菜；`is_limited=1` 且 `daily_stock>0` = 限量菜（防超卖演示），`sale_count` 有梯度（热销榜演示） |
 | `stall` | 3 个档口，1 条 `status=2` 待审核（管理端审核流程演示用） |
 | `coupon` / `user_coupon` | 优惠券 + student 已领 1 张未使用 |
+| `order_info` | 看 `delivery_type`/`rider_id`/`delivery_status`/`delivery_location`/`delivery_fee`/`pickup_code`/`batch_no`（补丁加列） |
+| `rider`（补丁） | 2 名校园配送员：`rider1` 在岗、`rider2` 停用 |
+| `complaint`（补丁） | 投诉工单，`status` 0待处理/1已回应/2已裁定，`escalated` 超时升级 |
+| `sys_message`（补丁） | 站内消息，type 0系统/1订单/2入驻/3投诉/4配送 |
+| `sys_operation_log`（补丁） | AOP 操作日志（操作人/模块/参数/耗时/成败） |
 
 ## 3. 方式二：IDEA 自带 Database 面板（日常开发最方便）
 
@@ -56,7 +62,27 @@ docker exec canteen-mysql mysql -uroot -p123456 --default-character-set=utf8mb4 
 docker exec canteen-mysql mysql -uroot -p123456 --default-character-set=utf8mb4 -e "SELECT id, username, nickname, balance FROM canteen.\`user\`"
 ```
 
-## 5. 常见报错对照
+## 5. 首次建库必做：应用三个增量补丁
+
+`docker-compose.yml` 只挂载了 `01-schema.sql`、`02-init_data.sql`，补丁脚本必须手动执行一次（**顺序不能乱**）：
+
+```powershell
+docker exec -i canteen-mysql mysql -uroot -p123456 canteen < sql/patch_message_complaint.sql
+docker exec -i canteen-mysql mysql -uroot -p123456 canteen < sql/patch_rider.sql
+docker exec -i canteen-mysql mysql -uroot -p123456 canteen < sql/patch_enhancements.sql
+```
+
+| 补丁 | 新增内容 | 可重复执行 |
+|---|---|---|
+| `patch_message_complaint.sql` | `sys_message`、`complaint` 两表 | ✅（`CREATE TABLE IF NOT EXISTS`） |
+| `patch_rider.sql` | `rider` 表；`order_info` 四列（`delivery_type`/`rider_id`/`delivery_status`/`delivery_location`）；RIDER 角色与权限；2 名配送员 + 2 笔待分配配送单 | ❌ 一次性，重复执行报 `Duplicate column` |
+| `patch_enhancements.sql` | `sys_operation_log` 表；`complaint.escalated`；`user_coupon_id`/`batch_no`/`limited`/`is_limited`/`delivery_fee` 等兼容列 | ✅（幂等判断） |
+
+完成后共 **20 张表**（16 基础 + 4 补丁）。`docker compose down -v` 重置数据卷后需重新执行三者。
+
+菜品图片可选：执行 `scripts/dish_images.sql` 补 19 张本地图片路径。
+
+## 6. 常见报错对照
 
 | 报错 | 原因 → 解法 |
 |---|---|
@@ -66,9 +92,10 @@ docker exec canteen-mysql mysql -uroot -p123456 --default-character-set=utf8mb4 
 | 连接时整个变慢/超时 | Docker Desktop 刚启动还在初始化，等半分钟再连 |
 | 端口 3306 被占用起不来容器 | 本机装过别的 MySQL（如 phpStudy）在跑 → `net stop mysqlzt`，或停用该服务 |
 
-## 6. ⚠️ 约定与红线
+## 7. ⚠️ 约定与红线
 
 1. **不要启动本机旧 MySQL 服务**（phpStudy 的 `mysqlzt` 等）：会抢占 3306，先到的赢，导致 Docker MySQL 失联，排查极费时
 2. **不要在 Navicat 里手动改业务表数据**后直接提交代码：演示数据一律以 `sql/init_data.sql` 为准——要改数据请改脚本再重置（`docker compose down -v && docker compose up -d`）
-3. **表结构改动必须走 A 的 PR 同步改 schema.sql**，群里说一声（组规）；不要在库里 manually 加列
-4. 重置会清空所有业务表数据（包括你注册接口新建的用户），重置后请重新注册
+3. **表结构改动必须同步改 `sql/schema.sql` 或对应补丁脚本**，群里说一声；不要在库里手动加列
+4. 重置会清空所有业务表数据（包括你注册接口新建的用户），重置后请重新注册并重新执行三个补丁
+5. 配送、投诉、消息、日志相关表由补丁创建，不是 `schema.sql` 遗漏；遇到"Table doesn't exist"先补执行第 5 节脚本
